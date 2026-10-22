@@ -2,6 +2,7 @@
 // Handles all kitchen data export, import, backup, and transfer operations.
 import SwiftUI
 import Combine
+import CoreFoundation
 import CloudKit
 import CryptoKit
 import CoreImage.CIFilterBuiltins
@@ -1022,15 +1023,7 @@ class KitchenTransferManager {
             throw KitchenBackupError.malformedPackage
         }
 
-        let snapshot: KitchenSnapshot
-        if let strict = try? JSONDecoder().decode(KitchenSnapshot.self, from: data) {
-            snapshot = strict
-        } else if let lenient = Self.lenientSnapshot(from: data) {
-            Log.transfer.notice("Backup restored via lenient decoder (older format)")
-            snapshot = lenient
-        } else {
-            throw KitchenBackupError.malformedPackage
-        }
+        let snapshot = try Self.decodeReadableSnapshot(data)
         return (snapshot, Self.legacyManifest(snapshot: snapshot, data: data), false)
     }
 
@@ -1707,8 +1700,119 @@ class KitchenTransferManager {
 // MARK: - Lenient backup decoding (backward compatibility)
 // Reconstructs a KitchenSnapshot from ANY older/partial backup JSON. Each field is read
 // with a safe default, and per-element decoding so one bad record can't fail the whole
-// restore. Used only when the strict Codable decode throws.
+// restore. Retained for explicit legacy recovery; Replace uses lossless row decoding
+// below and never falls back to these compactMap helpers.
 extension KitchenTransferManager {
+
+    /// Validate readable backups before any restore/rollback mutation. Unknown
+    /// roots and malformed rows must never fall through to an empty Replace.
+    nonisolated static func decodeReadableSnapshot(_ data: Data) throws -> KitchenSnapshot {
+        guard var root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              root["manifest"] == nil, root["sealedPayload"] == nil,
+              root["inventory"] == nil, root["grocery"] == nil, root["planned"] == nil else {
+            throw KitchenBackupError.invalidFormat
+        }
+        let arrays = ["inventoryItems", "groceryItems", "pastMeals", "savedRecipes",
+                      "userRecipes", "generatedRecipes", "plannedMeals"]
+        guard arrays.contains(where: { root[$0] != nil }) else { throw KitchenBackupError.invalidFormat }
+        for key in arrays where root[key] != nil {
+            guard root[key] is [[String: Any]] else { throw KitchenBackupError.malformedPackage }
+        }
+        if let version = root["schemaVersion"] {
+            guard let number = version as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+                  number.doubleValue == Double(number.intValue), (1...3).contains(number.intValue) else {
+                throw KitchenBackupError.invalidFormat
+            }
+        }
+        let decoder = JSONDecoder()
+        // Canonical Foundation dates are seconds since 2001; only Date fields
+        // accept the older ISO spelling. Sync updatedAt remains epoch metadata.
+        decoder.dateDecodingStrategy = .custom { value in
+            let c = try value.singleValueContainer()
+            if let seconds = try? c.decode(Double.self), seconds.isFinite {
+                return Date(timeIntervalSinceReferenceDate: seconds)
+            }
+            let text = try c.decode(String.self)
+            let formatter = ISO8601DateFormatter()
+            if let date = formatter.date(from: text) { return date }
+            formatter.formatOptions.insert(.withFractionalSeconds)
+            guard let date = formatter.date(from: text) else {
+                throw DecodingError.dataCorruptedError(in: c, debugDescription: "Invalid backup date")
+            }
+            return date
+        }
+        // Fill absent legacy fields from native defaults, then overlay EVERY
+        // supplied value. Invalid supplied IDs, dates, flags and nested shapes
+        // are never repaired or discarded; strict decoding below must reject.
+        func migrated<T: Encodable>(_ defaults: T, overlay: [String: Any]) throws -> [String: Any] {
+            let encoded = try JSONEncoder().encode(defaults)
+            guard let fields = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] else {
+                throw KitchenBackupError.malformedPackage
+            }
+            return fields.merging(overlay) { _, supplied in supplied }
+        }
+        func requiredText(_ row: [String: Any], _ key: String) throws -> String {
+            guard let text = row[key] as? String,
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw KitchenBackupError.malformedPackage
+            }
+            return text
+        }
+        for section in ["inventoryItems", "groceryItems", "pastMeals", "savedRecipes", "generatedRecipes"] {
+            for row in root[section] as? [[String: Any]] ?? [] {
+                _ = try requiredText(row, section == "inventoryItems" || section == "groceryItems" ? "name" : "title")
+            }
+        }
+        if var recipes = root["userRecipes"] as? [[String: Any]] {
+            for index in recipes.indices {
+                let original = recipes[index]
+                let title = try requiredText(original, "title")
+                // Missing original creation time becomes the native initializer's
+                // LOCAL ADOPTION time. It is not a historical source creation
+                // claim. Present dates, including null, override this default
+                // and must validate normally.
+                var recipe = try migrated(UserRecipe(title: title), overlay: original)
+                if let suppliedIngredients = original["ingredients"] {
+                    guard let ingredients = suppliedIngredients as? [Any] else {
+                        throw KitchenBackupError.malformedPackage
+                    }
+                    recipe["ingredients"] = try ingredients.map { value -> [String: Any] in
+                        if let name = value as? String {
+                            _ = try requiredText(["name": name], "name")
+                            // Released v1 backups stored whole ingredient lines.
+                            // Preserve each line verbatim rather than guessing quantities.
+                            return try migrated(RecipeIngredient(name: name, amount: ""), overlay: [:])
+                        }
+                        guard let row = value as? [String: Any] else { throw KitchenBackupError.malformedPackage }
+                        let name = try requiredText(row, "name")
+                        return try migrated(RecipeIngredient(name: name, amount: ""), overlay: row)
+                    }
+                }
+                recipes[index] = recipe
+            }
+            root["userRecipes"] = recipes
+        }
+        if var plans = root["plannedMeals"] as? [[String: Any]] {
+            for index in plans.indices {
+                let original = plans[index]
+                let title = try requiredText(original, "title")
+                guard let dayIndex = original["dayIndex"] as? Int,
+                      let servings = original["servings"] as? Int,
+                      let ingredients = original["ingredients"] as? [String] else {
+                    throw KitchenBackupError.malformedPackage
+                }
+                let mealType = try requiredText(original, "mealType")
+                let defaults = PlannedMeal(dayIndex: dayIndex, title: title, servings: servings,
+                                           ingredients: ingredients, mealType: mealType)
+                plans[index] = try migrated(defaults, overlay: original)
+            }
+            root["plannedMeals"] = plans
+        }
+        // Decode every row, including plans and recipes. A lossy compactMap
+        // fallback is unsafe for Replace, even when some other rows are valid.
+        let adapted = try JSONSerialization.data(withJSONObject: root)
+        return try decoder.decode(KitchenSnapshot.self, from: adapted)
+    }
 
     nonisolated static func lenientSnapshot(from data: Data) -> KitchenSnapshot? {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }

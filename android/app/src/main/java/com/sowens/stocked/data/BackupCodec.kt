@@ -2,7 +2,9 @@ package com.sowens.stocked.data
 
 import kotlinx.serialization.json.*
 import kotlinx.serialization.serializer
+import java.time.LocalDate
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.UUID
 
@@ -15,10 +17,12 @@ object BackupCodec {
   require(!root.containsKey("sealedPayload")) { "Encrypted .stocked backups require a recovery key. Export readable JSON from iOS instead." }
   val version = root["schemaVersion"]?.jsonPrimitive?.intOrNull ?: 1
   require(version in 1..3) { "This backup uses an unsupported schema version." }
+  val sectionKeys = setOf("inventoryItems", "groceryItems", "plannedMeals", "userRecipes", "pastMeals", "savedRecipes", "generatedRecipes", "inventory", "grocery", "planned", "recipes")
+  require(sectionKeys.any { root.containsKey(it) }) { "This file is not a Stocked kitchen backup." }
+  sectionKeys.forEach { key -> root[key]?.let { require(it is JsonArray) { "$key must be an array." } } }
   val warnings = mutableListOf<String>()
   fun <T> rows(primary: String, alternate: String, decode: (JsonObject)->T): List<T> {
    val value = root[primary] ?: root[alternate] ?: return emptyList()
-   if (value is JsonNull) return emptyList()
    require(value is JsonArray && value.size <= 10000) { "$primary must contain at most 10,000 records." }
    return value.mapIndexed { index, row ->
     require(row is JsonObject) { "$primary row ${index+1} is invalid." }
@@ -38,18 +42,18 @@ object BackupCodec {
     if(value is JsonPrimitive && !value.isString) {
      val seconds=value.doubleOrNull ?: error("Invalid expiration date.")
      require(seconds.isFinite() && seconds in -62135596800.0..253402300799.0)
-     result=JsonObject(result + ("expirationDate" to JsonPrimitive(Instant.ofEpochSecond((seconds+978307200).toLong()).atOffset(ZoneOffset.UTC).toLocalDate().toString())))
+     result=JsonObject(result + ("expirationDate" to JsonPrimitive(Instant.ofEpochSecond(kotlin.math.floor(seconds+978307200).toLong()).atZone(ZoneId.systemDefault()).toLocalDate().toString())))
     } else if(value is JsonPrimitive && value.isString && value.content.length > 10) {
-     result=JsonObject(result + ("expirationDate" to JsonPrimitive(Instant.parse(value.content).atOffset(ZoneOffset.UTC).toLocalDate().toString())))
+     result=JsonObject(result + ("expirationDate" to JsonPrimitive(Instant.parse(value.content).atZone(ZoneId.systemDefault()).toLocalDate().toString())))
     }
    }
    return result
   }
   inlineExtraCheck(root)
-  val inventory=rows("inventory","inventoryItems") { original -> val obj=normalize(original,true); json.decodeFromJsonElement<InventoryItem>(obj).copy(extra=unknown<InventoryItem>(obj)).also(KitchenRules::validate) }
-  val grocery=rows("grocery","groceryItems") { original -> val obj=normalize(original); json.decodeFromJsonElement<GroceryItem>(obj).copy(extra=unknown<GroceryItem>(obj)).also(KitchenRules::validate) }
+  val inventory=rows("inventoryItems","inventory") { original -> val obj=normalize(original,true); json.decodeFromJsonElement<InventoryItem>(obj).copy(extra=JsonObject(unknown<InventoryItem>(obj) + original.filterKeys { it == "expirationDate" })).also(KitchenRules::validate) }
+  val grocery=rows("groceryItems","grocery") { original -> val obj=normalize(original); json.decodeFromJsonElement<GroceryItem>(obj).copy(extra=unknown<GroceryItem>(obj)).also(KitchenRules::validate) }
   val recipes=rows("userRecipes","recipes") { original -> val obj=normalize(original); json.decodeFromJsonElement<Recipe>(obj).let { recipe -> recipe.copy(extra=unknown<Recipe>(obj), ingredients=recipe.ingredients.mapIndexed { i, ingredient -> ingredient.copy(extra=unknown<Ingredient>((obj["ingredients"] as? JsonArray)?.get(i)?.jsonObject ?: JsonObject(emptyMap()))) }) }.also(KitchenRules::validate) }
-  val meals=rows("planned","plannedMeals") { original -> val obj=normalize(original); json.decodeFromJsonElement<PlannedMeal>(obj).copy(extra=unknown<PlannedMeal>(obj)).also(KitchenRules::validate) }
+  val meals=rows("plannedMeals","planned") { original -> val obj=normalize(original); json.decodeFromJsonElement<PlannedMeal>(obj).copy(extra=unknown<PlannedMeal>(obj)).also(KitchenRules::validate) }
   fun unique(ids: List<String>) { require(ids.distinct().size == ids.size) { "Backup contains duplicate IDs. Review it before importing." } }
   unique(inventory.map{it.id}); unique(grocery.map{it.id}); unique(recipes.map{it.id}); unique(meals.map{it.id})
   val known=setOf("schemaVersion","inventory","inventoryItems","grocery","groceryItems","userRecipes","recipes","planned","plannedMeals","extra")
@@ -72,17 +76,69 @@ object BackupCodec {
   val obj=json.encodeToJsonElement(value).jsonObject
   return JsonObject((obj["extra"] as? JsonObject)?.toMap().orEmpty()+obj.filterKeys{it!="extra"})
  }
+ // Foundation Date wire values are seconds since 2001, unlike sync updatedAt.
+ private fun dateWire(value: JsonElement): JsonPrimitive {
+  require(value is JsonPrimitive) { "Invalid backup date." }
+  if (!value.isString) {
+   val seconds = value.doubleOrNull ?: error("Invalid backup date.")
+   require(seconds.isFinite()) { "Invalid backup date." }
+   return value
+  }
+  val instant = if(value.content.length == 10) LocalDate.parse(value.content).atStartOfDay().toInstant(ZoneOffset.UTC) else Instant.parse(value.content)
+  return JsonPrimitive(instant.epochSecond - 978307200 + instant.nano / 1_000_000_000.0)
+ }
+ // A date-only expiry is a calendar choice, like the native DatePicker.
+ // Resolve its midnight in the local timezone; supplied instants stay exact.
+ private fun expirationWire(value: JsonElement): JsonPrimitive {
+  if (value is JsonPrimitive && value.isString && value.content.length == 10) {
+   val instant = LocalDate.parse(value.content).atStartOfDay(ZoneId.systemDefault()).toInstant()
+   return JsonPrimitive(instant.epochSecond - 978307200 + instant.nano / 1_000_000_000.0)
+  }
+  return dateWire(value)
+ }
+ private fun dateDay(value: JsonElement): String {
+  val seconds = expirationWire(value).double
+  val epoch = seconds + 978307200
+  return Instant.ofEpochSecond(kotlin.math.floor(epoch).toLong()).atZone(ZoneId.systemDefault()).toLocalDate().toString()
+ }
  fun export(state:KitchenState):String {
-  val root=state.extra.filterKeys{it!="_androidHousehold"}.toMutableMap()
-  root["schemaVersion"]=JsonPrimitive(1)
+  val root=state.extra.filterKeys{it!="_androidHousehold" && it !in setOf("inventory", "grocery", "planned", "recipes")}.toMutableMap()
+  root["schemaVersion"]=JsonPrimitive(3)
   root["exportedAt"]=JsonPrimitive(Instant.now().toString())
-  root["inventory"]=JsonArray(state.inventory.map{item->
-   val obj=wire(item)
-   if(item.expirationDate==null)obj else JsonObject(obj+("expirationDate" to JsonPrimitive(item.expirationDate+"T00:00:00Z")))
+  root.putIfAbsent("displayName", JsonPrimitive("My Kitchen"))
+  root.putIfAbsent("pastMeals", JsonArray(emptyList()))
+  root.putIfAbsent("savedRecipes", JsonArray(emptyList()))
+  root["inventoryItems"]=JsonArray(state.inventory.map{item->
+   val obj=wire(item).toMutableMap()
+   if(item.expirationDate == null) obj.remove("expirationDate") else {
+    val original = item.extra["expirationDate"]
+    obj["expirationDate"] = if(original != null && original !is JsonNull && dateDay(original) == item.expirationDate) expirationWire(original) else expirationWire(JsonPrimitive(item.expirationDate))
+   }
+   JsonObject(obj)
   })
-  root["grocery"]=JsonArray(state.grocery.map{wire(it)})
-  root["userRecipes"]=JsonArray(state.userRecipes.map{recipe -> JsonObject(wire(recipe) + ("ingredients" to JsonArray(recipe.ingredients.map{wire(it)})))})
-  root["planned"]=JsonArray(state.planned.map{wire(it)})
+  root["groceryItems"]=JsonArray(state.grocery.map{wire(it)})
+  root["userRecipes"]=JsonArray(state.userRecipes.map{recipe ->
+   val obj=wire(recipe).toMutableMap()
+   obj.putIfAbsent("difficulty", JsonPrimitive("Medium"))
+   obj.putIfAbsent("dishRole", JsonPrimitive("unspecified"))
+   // Unknown original creation time stays absent on the wire. iOS assigns its
+   // local adoption time when it constructs that record, not an invented past
+   // source date. Present dates (including malformed/null values) are validated.
+   obj["dateCreated"]?.let { obj["dateCreated"] = dateWire(it) }
+   obj["lastCooked"]?.let { if(it !is JsonNull) obj["lastCooked"] = dateWire(it) }
+   obj["ingredients"] = JsonArray(recipe.ingredients.map { ingredient ->
+    val fields = wire(ingredient).toMutableMap()
+    fields.putIfAbsent("isOptional", JsonPrimitive(false))
+    JsonObject(fields)
+   })
+   JsonObject(obj)
+  })
+  root["plannedMeals"]=JsonArray(state.planned.map{
+   val obj=wire(it).toMutableMap()
+   obj.putIfAbsent("isBuilding", JsonPrimitive(false))
+   obj.putIfAbsent("cookAheadStatus", JsonPrimitive("none"))
+   JsonObject(obj)
+  })
   return JsonObject(root).toString()
  }
  fun merge(existing:KitchenState, incoming:KitchenState, replaceExisting:Boolean):KitchenState {
