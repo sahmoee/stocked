@@ -320,6 +320,9 @@
         }
       }
     },
+    "%@ design" : {
+
+    },
     "%@ done" : {
 
     },
@@ -344,6 +347,26 @@
     },
     "%@ is expiring soon." : {
 
+    },
+    "%@ is for people %lld or older, so we can’t continue. A parent or guardian can contact %@ to ask us to delete any information." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is for people %2$lld or older, so we can’t continue. A parent or guardian can contact %3$@ to ask us to delete any information."
+          }
+        }
+      }
+    },
+    "%@ is for people %lld or older. Please tell us which applies to you. We don’t ask for or store your birth date." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ is for people %2$lld or older. Please tell us which applies to you. We don’t ask for or store your birth date."
+          }
+        }
+      }
     },
     "%@ is your most common order-out night — worth prepping something ahead for." : {
 
@@ -1732,9 +1755,6 @@
     "Abbreviation appears on receipt exactly as scanned. It will be auto-resolved next time it's seen." : {
 
     },
-    "ABCD2345" : {
-
-    },
     "About %@ more this month than cooking would have cost." : {
 
     },
@@ -2067,6 +2087,9 @@
 
     },
     "Add to Stocked Grocery List" : {
+
+    },
+    "Add to your kitchen" : {
 
     },
     "Add two or more dishes and Stocked works backward from when you want to eat, so everything lands at the same time." : {
@@ -2552,6 +2575,9 @@
     "Before leaving this share or erasing local app data, turn this receiver off if you want notices to stop. Erasing your owner key does not turn off the server receiver." : {
 
     },
+    "Before you start" : {
+
+    },
     "Below minimum: %lld of %lld" : {
       "localizations" : {
         "en" : {
@@ -2675,6 +2701,16 @@
     },
     "By %@" : {
 
+    },
+    "By continuing you agree to the [Terms](%@) and acknowledge the [Privacy Policy](%@)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "By continuing you agree to the [Terms](%1$@) and acknowledge the [Privacy Policy](%2$@)."
+          }
+        }
+      }
     },
     "By crop" : {
 
@@ -2910,6 +2946,9 @@
     "Choose an icon for Stocked. It updates on your Home Screen right away." : {
 
     },
+    "Choose an inventory item, grocery item or recipe to add" : {
+
+    },
     "Choose Another Meal" : {
 
     },
@@ -3014,6 +3053,9 @@
     "Clear smart cache" : {
 
     },
+    "Clear text" : {
+
+    },
     "Clear the log" : {
 
     },
@@ -3051,7 +3093,10 @@
         }
       }
     },
-    "Code expires in 7 days" : {
+    "Code or https://sowensstudios.com/join/…" : {
+
+    },
+    "Code or invite link" : {
 
     },
     "Collected by MetricKit after a crash or hang. Delivered by the system on its own schedule, usually once a day, so this can lag a real crash by up to 24 hours." : {
@@ -3164,6 +3209,9 @@
     "Connecting an outside service is optional and sends only the information described in that connection’s review. Keys stay out of shared recipes and household backups." : {
 
     },
+    "Container label preview" : {
+
+    },
     "Container Labels" : {
 
     },
@@ -3238,6 +3286,9 @@
 
     },
     "Cook Together" : {
+
+    },
+    "Cook with what you have" : {
 
     },
     "Cook your first meal and your story starts here." : {
@@ -3472,6 +3523,9 @@
     "CURRENT AMOUNT" : {
 
     },
+    "Current design, default" : {
+
+    },
     "Current recipe · Cooklang" : {
 
     },
@@ -3634,6 +3688,9 @@
 
     },
     "Deselect any items you already have or don't need." : {
+
+    },
+    "Design" : {
 
     },
     "Destination calendar" : {
@@ -3816,6 +3873,9 @@
     "Each" : {
 
     },
+    "Each invite link works once and expires in 24 hours" : {
+
+    },
     "Each method gives you a different result. Pick the tradeoffs you want." : {
 
     },
@@ -3945,9 +4005,6 @@
         }
       }
     },
-    "Enter 8-character code" : {
-
-    },
     "Enter a valid website domain that isn't already in your list." : {
 
     },
@@ -3960,9 +4017,6 @@
     "Enter or paste a recipe link, then choose Go." : {
 
     },
-    "Enter the invite code shared by your household member." : {
-
-    },
     "Enter your calendar home URL (or full calendar URL), username and an app-specific password from your existing CalDAV service." : {
 
     },
@@ -3970,6 +4024,9 @@
 
     },
     "Enter your Grocy web or /api address and an API key from Grocy settings." : {
+
+    },
+    "Enter your household code or paste an invite link." : {
 
     },
     "Enter zip code" : {
@@ -4687,6 +4744,9 @@
     "Household Activity" : {
 
     },
+    "Household code or invite link" : {
+
+    },
     "Household created!" : {
 
     },
@@ -4777,6 +4837,12 @@
     "https://your-server/grocy/api" : {
 
     },
+    "I am %lld or older" : {
+
+    },
+    "I am under %lld" : {
+
+    },
     "I can answer questions about what you have, what's expiring, and what's in each zone." : {
 
     },
@@ -4786,7 +4852,7 @@
     "I couldn't find anything to change from that. Try naming specific items." : {
 
     },
-    "I have an invite code" : {
+    "I have a code or invite link" : {
 
     },
     "I want to review a separate copy" : {
@@ -5031,6 +5097,9 @@
     "Items tossed past their expiry show up here." : {
 
     },
+    "Items with best-before dates will appear here." : {
+
+    },
     "Its saved result and alerts are removed from this device. Your receipts and household prices stay." : {
 
     },
@@ -5190,6 +5259,9 @@
     "Kitchen Transfer" : {
 
     },
+    "Kitchen transfer QR code" : {
+
+    },
     "Knock these out before step 1 and the cook goes smoothly." : {
 
     },
@@ -5343,6 +5415,9 @@
 
     },
     "Level" : {
+
+    },
+    "Light Theme applies to the Current design." : {
 
     },
     "Likely out" : {
@@ -5691,6 +5766,9 @@
 
     },
     "More details (size, expiry)" : {
+
+    },
+    "More information" : {
 
     },
     "More online" : {
@@ -6070,6 +6148,9 @@
     "None" : {
 
     },
+    "Not available" : {
+
+    },
     "Not checked yet" : {
 
     },
@@ -6192,6 +6273,9 @@
 
     },
     "Nothing needs attention" : {
+
+    },
+    "Nothing needs using up right now." : {
 
     },
     "Nothing on the list to shop for." : {
@@ -6465,6 +6549,12 @@
     "Opens an editable recipe review. Nothing is saved automatically." : {
 
     },
+    "Opens expiring items" : {
+
+    },
+    "Opens low stock" : {
+
+    },
     "Opens the %@ tab" : {
 
     },
@@ -6472,6 +6562,9 @@
 
     },
     "Opens the matching inventory list" : {
+
+    },
+    "Opens the recipe" : {
 
     },
     "Opens your Daily Brief" : {
@@ -8209,6 +8302,9 @@
     "See connection status, manage optional update delivery and configure a signed webhook receiver you control." : {
 
     },
+    "See meals ready from your kitchen." : {
+
+    },
     "See Prep Order" : {
 
     },
@@ -8352,9 +8448,6 @@
     "Share calculation" : {
 
     },
-    "Share Code" : {
-
-    },
     "Share CSV…" : {
 
     },
@@ -8371,6 +8464,9 @@
 
     },
     "Share full series" : {
+
+    },
+    "Share Invite Link" : {
 
     },
     "Share kitchen with Apple Watch" : {
@@ -9336,7 +9432,7 @@
     "This older share has no private owner key. Webhook setup is locked. To use it, first review your local data, then explicitly stop sharing and create a new share in Sharing. Your members will need the new invite. Nothing is moved or deleted here." : {
 
     },
-    "This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. This cannot be undone." : {
+    "This permanently deletes your account and all associated data, including your pantry, grocery list, meal history, saved recipes, settings, iCloud backup, and any shared household. Copies held by our sync service can be removed through the deletion request in Help & Support. This cannot be undone." : {
 
     },
     "This removes %@ and its rules from the household. Recipes stay saved." : {
@@ -10193,10 +10289,10 @@
     "YOU SAVED ABOUT" : {
 
     },
-    "You'll get an invite code to share with family. They join, and your pantry and grocery list sync together." : {
+    "You'll get an invite link to share with family. They join, and your pantry and grocery list sync together." : {
 
     },
-    "You'll stop seeing the shared pantry and grocery list. You can rejoin with a new invite code." : {
+    "You'll stop seeing the shared pantry and grocery list. You can rejoin with a new invite link." : {
 
     },
     "You're all done!" : {

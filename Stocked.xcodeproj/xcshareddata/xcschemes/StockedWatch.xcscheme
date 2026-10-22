@@ -64,6 +64,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A017C0DE0000000000000005"
             BuildableName = "StockedWatch.app"
+            BlueprintName = "StockedWatch"
             ReferencedContainer = "container:Stocked.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -80,6 +81,7 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A017C0DE0000000000000005"
             BuildableName = "StockedWatch.app"
+            BlueprintName = "StockedWatch"
             ReferencedContainer = "container:Stocked.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
