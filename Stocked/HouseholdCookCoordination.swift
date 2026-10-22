@@ -56,6 +56,7 @@ nonisolated struct HouseholdCookPresence: HouseholdSyncable, Equatable {
 @MainActor
 @Observable
 final class HouseholdCookStore {
+    nonisolated deinit {}
     static let shared = HouseholdCookStore()
 
     private let store = FeatureStore<HouseholdCookPresence>(key: FeatureStoreKeys.householdCookPresence)

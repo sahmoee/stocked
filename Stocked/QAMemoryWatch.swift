@@ -43,6 +43,7 @@ nonisolated struct QAMemoryPoint: Identifiable, Sendable {
 @MainActor
 @Observable
 final class QAMemoryWatch {
+    nonisolated deinit {}
     static let shared = QAMemoryWatch()
 
     private(set) var samples: [QAMemoryPoint] = []

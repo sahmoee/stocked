@@ -102,6 +102,7 @@ struct GroceryTemplate: Identifiable, Codable, Equatable {
 @Observable
 @MainActor
 final class GroceryTemplateStore {
+    nonisolated deinit {}
     static let shared = GroceryTemplateStore()
 
     var templates: [GroceryTemplate] = [] {
@@ -190,13 +191,13 @@ struct ExpiryUrgencyChip: View {
     let daysLeft: Int
 
     private var label: String {
-        if daysLeft < 0  { return "Expired" }
+        if daysLeft < 0 { return "Expired" }
         if daysLeft == 0 { return "Today" }
         if daysLeft == 1 { return "1 day" }
         return "\(daysLeft) days"
     }
     private var color: Color {
-        if daysLeft < 0  { return .red }
+        if daysLeft < 0 { return .red }
         if daysLeft <= 2 { return .orange }
         if daysLeft <= KitchenThresholds.expiringSoonDays { return .yellow }
         return .green

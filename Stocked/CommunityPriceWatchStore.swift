@@ -3,6 +3,7 @@ import Observation
 @preconcurrency import UserNotifications
 
 @MainActor @Observable final class CommunityPriceWatchStore {
+    nonisolated deinit {}
     static let shared = CommunityPriceWatchStore()
     @ObservationIgnored private let file = FeatureStore<CommunityPriceWatch>(key: FeatureStoreKeys.communityPriceWatches)
     private(set) var watches: [CommunityPriceWatch] = []

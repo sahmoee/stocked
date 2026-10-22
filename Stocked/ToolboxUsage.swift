@@ -25,6 +25,7 @@ nonisolated struct ToolUsageRecord: Codable, Identifiable, Sendable {
 @MainActor
 @Observable
 final class ToolboxUsageStore {
+    nonisolated deinit {}
     static let shared = ToolboxUsageStore()
     private let persistence = FeatureStore<ToolUsageRecord>(key: FeatureStoreKeys.toolboxUsage)
 

@@ -39,6 +39,7 @@ nonisolated struct SyncConflictRecord: Codable, Identifiable, Sendable, Hashable
 @MainActor
 @Observable
 final class SyncConflictLog {
+    nonisolated deinit {}
     static let shared = SyncConflictLog()
 
     private let persistence = FeatureStore<SyncConflictRecord>(key: FeatureStoreKeys.syncConflicts)

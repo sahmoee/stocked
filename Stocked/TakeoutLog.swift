@@ -97,6 +97,7 @@ nonisolated enum TakeoutMath {
 @MainActor
 @Observable
 final class TakeoutStore {
+    nonisolated deinit {}
     static let shared = TakeoutStore()
     /// Improvement #6 — file-backed, debounced, and migrated automatically from the old
     /// UserDefaults blob on first load. See FeatureStore.swift for why.

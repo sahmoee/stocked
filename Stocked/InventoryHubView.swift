@@ -1292,7 +1292,6 @@ struct CategoryItemsView: View {
         return buckets.sorted { $0.value.count > $1.value.count }
     }
 
-
     var body: some View {
         StockedShell(showBack: true, scrollDisabled: false, canvasColor: session.inventoryCanvas) {
             VStack(alignment: .leading, spacing: 14) {
@@ -1502,9 +1501,12 @@ private struct GeometryProxyFreeBar: View {
     }
 }
 
-
 /// Memo for InventoryHubView zone counts; a class so the body can fill it without re-rendering.
 final class HubZoneCountCache {
+    // Avoid the Swift 6.2 isolated-deinit runtime crash on iOS 26.2.
+    // Cache destruction performs no actor-isolated work (swiftlang/swift#88036).
+    nonisolated deinit {}
+
     private var revision: Int?
     private var counts: [String: Int] = [:]
     func value(for revision: Int) -> [String: Int]? { self.revision == revision ? counts : nil }

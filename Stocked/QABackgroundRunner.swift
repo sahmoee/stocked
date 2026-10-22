@@ -31,6 +31,7 @@ import Observation
 @MainActor
 @Observable
 final class QABackgroundRunner {
+    nonisolated deinit {}
     static let shared = QABackgroundRunner()
 
     private(set) var isRunning = false

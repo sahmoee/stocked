@@ -619,6 +619,7 @@ nonisolated enum QACPanelClient {
 @MainActor
 @Observable
 final class QASyncCoordinator {
+    nonisolated deinit {}
     static let shared = QASyncCoordinator()
 
     private(set) var isRunning = false

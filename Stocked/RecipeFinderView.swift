@@ -1,6 +1,9 @@
 import SwiftUI
 
 @Observable @MainActor final class RecipeFinderSession {
+    // Empty explicit destruction avoids swiftlang/swift#88036 on older iOS runtimes.
+    nonisolated deinit {}
+
   var flow = FinderFlow()
   var hits: [FinderHit] = []
   private var requestState = FinderRequestState()

@@ -30,6 +30,7 @@ import Observation
 @Observable
 @MainActor
 final class HarvestRecipeSync {
+    nonisolated deinit {}
     static let shared = HarvestRecipeSync()
 
     // MARK: Cadence

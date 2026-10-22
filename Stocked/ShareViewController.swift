@@ -27,6 +27,7 @@ import UniformTypeIdentifiers
 import MobileCoreServices
 
 final class ShareViewController: UIViewController {
+    nonisolated deinit {}
 
     // MUST match the App Group you create in BOTH targets' Signing & Capabilities.
     private let appGroupID = "group.com.sowens.Stocked"
@@ -92,7 +93,7 @@ final class ShareViewController: UIViewController {
 
         // Write the payload into the shared container under a known key.
         var payload: [String: Any] = ["receivedAt": Date().timeIntervalSince1970]
-        if let url  { payload["url"]  = url }
+        if let url { payload["url"]  = url }
         if let text { payload["text"] = text }
         if let image {
             // Store the image as a file in the group container; keep the path in defaults.

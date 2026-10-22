@@ -138,6 +138,7 @@ nonisolated struct ActiveCookSessionSnapshot: Codable, Sendable, Identifiable {
 @MainActor
 @Observable
 final class ActiveCookSessionStore {
+    nonisolated deinit {}
 
     static let shared = ActiveCookSessionStore()
 

@@ -39,6 +39,7 @@ enum DatabaseEvent {
 
 @MainActor
 final class DatabaseSyncBus {
+    nonisolated deinit {}
     static let shared = DatabaseSyncBus()
     private init() { subscribeAll() }
 

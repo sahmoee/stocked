@@ -73,6 +73,7 @@ struct CachedRecipe: Codable, Identifiable, Sendable {
 // MARK: - Offline Cache (last 100, disk-backed, TTL refresh) (#7)
 @Observable
 class OfflineRecipeCache {
+    nonisolated deinit {}
     static let shared = OfflineRecipeCache()
     private let key   = StockedKeys.offlineRecipeCache
     private let limit = StockedUI.offlineCacheLimit
@@ -128,6 +129,7 @@ class OfflineRecipeCache {
 // MARK: - Async/await API client (Code Professional #1, #9)
 @MainActor
 final class RecipeAPIClient {
+    nonisolated deinit {}
     static let shared = RecipeAPIClient()
     private let cache = OfflineRecipeCache.shared
     private let session: URLSession = {

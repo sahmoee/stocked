@@ -66,6 +66,7 @@ nonisolated struct LeftoverEntry: Codable, Identifiable, Hashable, Sendable, Hou
 @MainActor
 @Observable
 final class LeftoversStore {
+    nonisolated deinit {}
     static let shared = LeftoversStore()
     /// Improvement #6 — file-backed, debounced, and migrated automatically from the old
     /// UserDefaults blob on first load. See FeatureStore.swift for why.

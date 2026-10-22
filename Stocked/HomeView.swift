@@ -128,13 +128,26 @@ struct HomeView: View {
                     gettingStartedCard
                         .padding(.bottom, 20)
                 }
-                StockedPastelHome(metrics: kitchenMetrics,
-                    onExpiring: { goExpiringList = true },
-                    onRecipes: { goReadyToCook = true })
-                    .padding(.bottom, 20)
+                if session.designVariant == .current {
+                    StockedPastelHome(metrics: kitchenMetrics,
+                        onExpiring: { goExpiringList = true },
+                        onRecipes: { goReadyToCook = true },
+                        onLowStock: { goLowStock = true })
+                        .padding(.bottom, 20)
+                } else {
+                    // Optional design variants: short hero, grouped sections, one primary action.
+                    StockedVariantHome(metrics: kitchenMetrics,
+                        readyPicks: readyToCookPicks,
+                        onExpiring: { goExpiringList = true },
+                        onLowStock: { goLowStock = true },
+                        onRecipes: { goReadyToCook = true },
+                        onAdd: { activeActionMenu = .add })
+                        .padding(.bottom, 24)
+                }
                 HStack {
                     Text("Your shortcuts")
                         .font(.stockedSerif(22, weight: .semibold))
+                        .accessibilityAddTraits(.isHeader)
                     Spacer()
                     Button { activeHomeSheet = .widgetGallery } label: {
                         Image(systemName: "plus").frame(width: 44, height: 44)
@@ -328,13 +341,11 @@ struct HomeView: View {
                         .font(.stockedSystem(size: isWideHomeCanvas ? 16 : 12.5, weight: .semibold))
                         .foregroundStyle(session.themeTextColor)
 
-
                     Text(lowStockCount == 0 ? "Nothing running low right now. Keep cooking."
                                             : "\(lowStockCount) item\(lowStockCount == 1 ? "" : "s") could use attention.")
                         .font(.stockedSystem(size: isWideHomeCanvas ? 14 : 11.5))
                         .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
-
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -355,7 +366,6 @@ struct HomeView: View {
                           ? .stockedSerif(13, weight: .bold, relativeTo: .headline)
                           : .stockedSerif(22, weight: .bold, relativeTo: .title2))
                     .foregroundStyle(session.themeTextColor)
-
 
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer()
@@ -511,7 +521,6 @@ struct HomeView: View {
                         .font(.stockedSystem(size: usesReferencePhoneGeometry ? 8.5 : 12))
                         .foregroundStyle(session.themeSecondaryText)
                         .fixedSize(horizontal: false, vertical: true)
-
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.right")
@@ -570,7 +579,6 @@ struct HomeView: View {
                                   ? .stockedSerif(14.25, weight: .bold, relativeTo: .headline)
                                   : .stockedSerif(17, weight: .bold, relativeTo: .headline))
                             .foregroundStyle(session.themeTextColor)
-
 
                             .allowsTightening(true)
                             .fixedSize(horizontal: false, vertical: true)
@@ -3116,6 +3124,7 @@ private struct OneFingerWidgetLongPressCatcher: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(onFire: onFire) }
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        nonisolated deinit {}
         var onFire: @MainActor () -> Void
         private weak var window: UIWindow?
         private var recognizer: UILongPressGestureRecognizer?
@@ -3154,6 +3163,7 @@ private struct OneFingerWidgetLongPressCatcher: UIViewRepresentable {
     }
 
     private final class WidgetPressObserver: UIView {
+        nonisolated deinit {}
         weak var coordinator: Coordinator?
         override func didMoveToWindow() {
             super.didMoveToWindow()

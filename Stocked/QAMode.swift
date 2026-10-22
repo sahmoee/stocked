@@ -122,6 +122,7 @@ nonisolated struct QAScreenCount: Identifiable, Sendable {
 @MainActor
 @Observable
 final class QARecorder {
+    nonisolated deinit {}
     static let shared = QARecorder()
 
     /// Master switch. Persisted, off by default.

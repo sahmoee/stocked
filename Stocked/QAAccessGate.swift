@@ -49,6 +49,7 @@ nonisolated enum QAAccessGateKeys {
 @MainActor
 @Observable
 final class QAAccessGate {
+    nonisolated deinit {}
     static let shared = QAAccessGate()
 
     /// The window. Changing this one number changes the whole policy.

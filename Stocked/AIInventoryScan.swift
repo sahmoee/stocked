@@ -55,6 +55,7 @@ nonisolated struct InventoryScanUpdate: Identifiable, Equatable, Sendable {
 @Observable
 @MainActor
 final class AIInventoryScanner {
+    nonisolated deinit {}
     var isScanning = false
     var lastError: String?
 

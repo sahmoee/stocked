@@ -42,6 +42,7 @@ struct RichTextEditor: UIViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject, UITextViewDelegate {
+        nonisolated deinit {}
         private let text: Binding<String>
         private let onEditingChanged: (Bool) -> Void
 

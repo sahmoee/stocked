@@ -91,6 +91,7 @@ private struct BundleFingerprint: Codable, Hashable {
 
 @MainActor
 final class StockedBundleImporter {
+    nonisolated deinit {}
 
     static let shared = StockedBundleImporter()
     private init() {}

@@ -14,6 +14,7 @@ import Observation
 
 @Observable
 final class AppAnalytics {
+    nonisolated deinit {}
     static let shared = AppAnalytics()
 
     /// The meaningful things a user can do. Keep names stable; they are persisted as raw strings.

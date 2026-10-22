@@ -32,6 +32,7 @@ struct StockedThemeEnvironmentModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         let _ = session.appFont // Register live preference changes without overriding display roles.
+        let _ = session.designVariant // Variant typography/geometry are read by the shared constructors.
         let themed = content
             .listStyle(.insetGrouped)
             .formStyle(.grouped)
@@ -176,16 +177,15 @@ struct InventoryStoragePicker: View {
 // Use these instead of .system(size: N) for Dynamic Type compatibility
 extension Font {
     // Serif display
-    static var stockedDisplay: Font  { .stockedSerif(28, weight: .bold, relativeTo: .title) }
-    static var stockedTitle: Font    { .stockedSerif(22, weight: .bold, relativeTo: .title2) }
+    static var stockedDisplay: Font { .stockedSerif(28, weight: .bold, relativeTo: .title) }
+    static var stockedTitle: Font { .stockedSerif(22, weight: .bold, relativeTo: .title2) }
     static var stockedHeadline: Font { .stockedSerif(18, weight: .semibold, relativeTo: .headline) }
     // Sans body
-    static var stockedBody: Font     { .stockedSans(15, relativeTo: .body) }
+    static var stockedBody: Font { .stockedSans(15, relativeTo: .body) }
     static var stockedBodyBold: Font { .stockedSans(15, weight: .semibold, relativeTo: .body) }
-    static var stockedCaption: Font  { .stockedSans(12, relativeTo: .caption) }
-    static var stockedLabel: Font    { .stockedSans(11, weight: .semibold, relativeTo: .caption2) }
+    static var stockedCaption: Font { .stockedSans(12, relativeTo: .caption) }
+    static var stockedLabel: Font { .stockedSans(11, weight: .semibold, relativeTo: .caption2) }
 }
-
 
 // MARK: - Theme text color environment key
 // #5: stockedTextColor is deprecated — use @Environment(AppSession.self) then session.themeTextColor.
@@ -242,22 +242,46 @@ struct StockedPrimaryButtonStyle: ButtonStyle {
     @Environment(\.stockedLayout) private var layoutMetrics
     @Environment(\.stockedMotion) private var motion
     @Environment(\.isEnabled) private var isEnabled
-    var accent: Color = Color.stockedCharcoal
-    var fg: Color = Color.stockedWhite
+    @Environment(\.stockedDesignVariant) private var designVariant
+    @Environment(\.colorScheme) private var colorScheme
+    /// nil uses the design's primary action colors (charcoal/ivory in the Current design).
+    var accent: Color? = nil
+    var fg: Color? = nil
+    /// A label-only customization retains its original charcoal-role fill. This keeps
+    /// Grocery's selected-state label from becoming accent-on-accent in dark variants.
+    static func fillColor(palette: StockedVariantPalette?, explicitFill: Color? = nil,
+                          explicitLabel: Color? = nil) -> Color {
+        if let explicitFill { return explicitFill }
+        if explicitLabel != nil { return palette?.color(.button) ?? Color.stockedCharcoal }
+        return palette?.color(.accent) ?? Color.stockedCharcoal
+    }
+
+    /// Label role follows the actual fill, including existing explicit-fill call sites.
+    static func labelColor(palette: StockedVariantPalette?, explicitFill: Bool,
+                           explicitLabel: Color? = nil) -> Color {
+        explicitLabel ?? palette?.color(explicitFill ? .ivory : .onAccent) ?? Color.stockedWhite
+    }
+
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label.font(.stockedBodyBold)
+        let palette = designVariant.palette(dark: colorScheme == .dark)
+        let fill = Self.fillColor(palette: palette, explicitFill: accent, explicitLabel: fg)
+        // A caller-supplied fill keeps its legacy ivory label pairing.
+        let fg = Self.labelColor(palette: palette, explicitFill: accent != nil, explicitLabel: fg)
+        // Variants use a solid action fill; the outline returns for Increase Contrast.
+        let outline: CGFloat = accessibilityContrast == .increased ? 2 : (palette == nil ? 1.25 : 0)
+        return configuration.label.font(.stockedBodyBold)
             .stockedAdaptiveLabel(maxLines: 3, alignment: .center, minimumScale: 0.82)
             .foregroundStyle(fg).frame(maxWidth: .infinity)
             .padding(.horizontal, layoutMetrics.controlHorizontalPadding)
             .padding(.vertical, layoutMetrics.controlVerticalPadding)
             .frame(minHeight: layoutMetrics.minimumControlHeight)
-            .background(accent).clipShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius))
+            .background(fill).clipShape(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius))
             .overlay(RoundedRectangle(cornerRadius: layoutMetrics.controlCornerRadius)
                 .stroke(fg.opacity(accessibilityContrast == .increased ? 0.85 : 0.48),
-                        lineWidth: accessibilityContrast == .increased ? 2 : 1.25))
+                        lineWidth: outline))
             .opacity(isEnabled ? (configuration.isPressed ? 0.88 : 1) : 0.5)
             .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? 0.97 : 1)
-            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
+            .animation(configuration.isPressed ? nil : motion.animation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity), value: configuration.isPressed)
     }
 }
 struct StockedSecondaryButtonStyle: ButtonStyle {
@@ -277,7 +301,7 @@ struct StockedSecondaryButtonStyle: ButtonStyle {
             .stockedGlassSurface(.control, cornerRadius: layoutMetrics.controlCornerRadius)
             .opacity(isEnabled ? (configuration.isPressed ? 0.88 : 1) : 0.5)
             .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? 0.97 : 1)
-            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
+            .animation(configuration.isPressed ? nil : motion.animation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity), value: configuration.isPressed)
     }
 }
 
@@ -296,7 +320,7 @@ struct StockedWidgetButtonStyle: ButtonStyle {
                     .allowsHitTesting(false)
             }
             .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? 0.985 : 1)
-            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
+            .animation(configuration.isPressed ? nil : motion.animation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity), value: configuration.isPressed)
     }
 }
 
@@ -393,7 +417,7 @@ extension View {
 @available(*, deprecated, renamed: "StockedThemedTextFieldStyle")
 typealias StockedOutlinedTextFieldStyle = StockedThemedTextFieldStyle
 extension View {
-    func stockedPrimary(accent: Color = Color.stockedCharcoal, fg: Color = Color.stockedWhite) -> some View {
+    func stockedPrimary(accent: Color? = nil, fg: Color? = nil) -> some View {
         buttonStyle(StockedPrimaryButtonStyle(accent: accent, fg: fg))
     }
     func stockedSecondary(accent: Color? = nil) -> some View {
@@ -502,12 +526,12 @@ struct StockedActionRow: View {
 
 // MARK: - Haptics (UI #15)
 struct HapticManager {
-    static func light()   { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
-    static func medium()  { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
+    static func light() { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+    static func medium() { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
     static func success() { UINotificationFeedbackGenerator().notificationOccurred(.success) }
     static func warning() { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
-    static func error()   { UINotificationFeedbackGenerator().notificationOccurred(.error) }
-    static func select()  { UISelectionFeedbackGenerator().selectionChanged() }
+    static func error() { UINotificationFeedbackGenerator().notificationOccurred(.error) }
+    static func select() { UISelectionFeedbackGenerator().selectionChanged() }
 }
 
 // MARK: - Skeleton loading (UI #1)
@@ -698,7 +722,7 @@ struct Triangle: Shape {
 extension Color {
     static func expiryColor(daysLeft: Int?) -> Color {
         guard let d = daysLeft else { return .stockedGreen }
-        if d < 0  { return .red }
+        if d < 0 { return .red }
         if d <= 1 { return .red }
         if d <= 3 { return .orange }
         if d <= 7 { return Color(red: 0.85, green: 0.65, blue: 0.1) }
@@ -724,7 +748,7 @@ struct PressableStyle: ButtonStyle {
         configuration.label
             .opacity(configuration.isPressed ? 0.88 : 1)
             .scaleEffect(motion.permitsSpatialMotion && configuration.isPressed ? scale : 1)
-            .stockedAnimation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity, value: configuration.isPressed)
+            .animation(configuration.isPressed ? nil : motion.animation(.press, intent: motion.permitsSpatialMotion ? .spatial : .opacity), value: configuration.isPressed)
     }
 }
 extension View {
@@ -740,10 +764,10 @@ struct SpringInModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .opacity(appeared ? 1 : 0)
-            .offset(y: appeared ? 0 : 12)
-            .scaleEffect(appeared ? 1 : 0.97)
+            .offset(y: appeared || !motion.permitsDecorativeMotion ? 0 : 12)
+            .scaleEffect(appeared || !motion.permitsDecorativeMotion ? 1 : 0.97)
             .onAppear {
-                let animation = motion.animation(.settle, intent: .decorative).map { $0.delay(delay) }
+                let animation = motion.animation(.standard, intent: .decorative).map { $0.delay(delay) }
                 withAnimation(animation) {
                     appeared = true
                 }
@@ -895,8 +919,6 @@ struct SectionHeader: View {
                              : EdgeInsets())
     }
 }
-
-
 
 // MARK: - Global keyboard dismissal
 // Use .dismissKeyboardOnTap() on any container to let tapping outside dismiss the keyboard.
@@ -1111,17 +1133,19 @@ struct StockedTopShell<Content: View>: View {
                         Image(systemName: "chevron.left")
                             .scaledFont(20, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
-                    }.buttonStyle(.plain)
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
+                    }.pressable()
                         .accessibilityLabel("Back")
                 } else {
-                    Color.clear.frame(width: 24)
+                    Color.clear.frame(width: 44)
                 }
                 Spacer()
                 Text("Stocked.")
                     .scaledFont(26, weight: .bold, design: .serif)
                     .foregroundStyle(session.themeTextColor)
                 Spacer()
-                Color.clear.frame(width: 24)
+                Color.clear.frame(width: 44)
             }
             .padding(.horizontal, 20)
             .padding(.top, showHandle ? 2 : 12)

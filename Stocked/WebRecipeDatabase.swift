@@ -59,7 +59,7 @@ struct WebRecipe: Identifiable, Codable, Sendable {
 
     nonisolated var displayTime: String {
         if let t = totalMinutes { return formatMinutes(t) }
-        if !totalTime.isEmpty   { return totalTime }
+        if !totalTime.isEmpty { return totalTime }
         return ""
     }
 
@@ -818,7 +818,7 @@ struct JSONLDRecipeParser {
 
     private nonisolated static func mapDifficulty(keywords: [String], cookTime: String) -> String {
         let kw = keywords.map { $0.lowercased() }.joined(separator: " ")
-        if kw.contains("easy") || kw.contains("beginner") || kw.contains("simple")  { return "Easy" }
+        if kw.contains("easy") || kw.contains("beginner") || kw.contains("simple") { return "Easy" }
         if kw.contains("advanced") || kw.contains("expert") || kw.contains("complex") { return "Advanced" }
         // Fall back to time-based
         if let mins = WebRecipe(title:"",sourceURL:"",sourceName:"",sourceDomain:"",imageURL:"",
@@ -1544,13 +1544,13 @@ actor WebRecipeFetcher {
         }
         UserDefaults.standard.set(true, forKey: key)
     }
-
 }
 
 // MARK: - WebRecipeManager — high-level API for SwiftUI views
 @Observable
 @MainActor
 class WebRecipeManager {
+    nonisolated deinit {}
     static let shared = WebRecipeManager()
 
     var recipes:      [WebRecipe] = []

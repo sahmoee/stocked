@@ -48,6 +48,7 @@ nonisolated enum QAShakeSettings {
 @MainActor
 @Observable
 final class QAShakeDetector {
+    nonisolated deinit {}
     static let shared = QAShakeDetector()
 
     /// Magnitude in g above which a sample counts as a jolt. 1.0g is gravity at

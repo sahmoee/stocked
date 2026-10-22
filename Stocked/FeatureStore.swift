@@ -20,6 +20,7 @@ import Foundation
 
 @MainActor
 final class FeatureStore<Element: Codable & Sendable> {
+    nonisolated deinit {}
 
     /// Storage key. Also the LocalDatabase filename and the legacy UserDefaults key we migrate from.
     let key: String

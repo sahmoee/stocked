@@ -18,6 +18,7 @@ nonisolated struct PlanWeekReview: Sendable {
 /// A feature owner in the existing LocalDatabase/FeatureSync system, not a new recipe database.
 /// Dated records never reserve food or become cooking candidates without a reviewed handoff.
 @MainActor @Observable final class PlanAheadStore {
+    nonisolated deinit {}
     static let shared = PlanAheadStore()
     @ObservationIgnored private let mealsFile = FeatureStore<ScheduledMeal>(key: FeatureStoreKeys.scheduledMeals)
     @ObservationIgnored private let rulesFile = FeatureStore<MealPlanRule>(key: FeatureStoreKeys.mealPlanRules)

@@ -937,6 +937,7 @@ actor RecipeDatabase {
 @Observable
 @MainActor
 final class RecipeDatabaseManager {
+    nonisolated deinit {}
     static let shared = RecipeDatabaseManager()
 
     private let db = RecipeDatabase.shared
@@ -1413,5 +1414,4 @@ final class RecipeDatabaseManager {
         let results = await RecipeDatabase.shared.search(query)
         _ = results.prefix(5).map { $0.title }
     }
-
 }

@@ -73,6 +73,7 @@ nonisolated struct QAAccessibilityIssue: Identifiable, Sendable {
 @MainActor
 @Observable
 final class QAAccessibilitySweep {
+    nonisolated deinit {}
     static let shared = QAAccessibilitySweep()
 
     private(set) var issues: [QAAccessibilityIssue] = []

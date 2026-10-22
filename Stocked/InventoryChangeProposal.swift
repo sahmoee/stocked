@@ -783,6 +783,7 @@ nonisolated private extension String {
 
 @Observable
 final class InventoryIntentParser {
+    nonisolated deinit {}
     var isParsing = false
     var lastError: String?
 

@@ -2,6 +2,7 @@ import Foundation
 @preconcurrency import WatchConnectivity
 
 @MainActor final class KitchenWatchTransport: NSObject, WCSessionDelegate {
+    nonisolated deinit {}
     var receive: ((Data) -> Void)?
     var changed: (() -> Void)?
     private(set) var failure: String?

@@ -16,6 +16,7 @@ import SwiftUI
 @Observable
 @MainActor
 final class NetworkMonitor {
+    nonisolated deinit {}
 
     static let shared = NetworkMonitor()
 
@@ -61,8 +62,8 @@ final class NetworkMonitor {
 
     private nonisolated static func classify(_ path: NWPath) -> ConnectionType {
         guard path.status == .satisfied else { return .none }
-        if path.usesInterfaceType(.wifi)          { return .wifi }
-        if path.usesInterfaceType(.cellular)      { return .cellular }
+        if path.usesInterfaceType(.wifi) { return .wifi }
+        if path.usesInterfaceType(.cellular) { return .cellular }
         if path.usesInterfaceType(.wiredEthernet) { return .wired }
         return .other
     }
@@ -90,7 +91,6 @@ struct OfflineBanner: View {
                     Text("Offline — changes save here and sync when you reconnect")
                         .scaledFont(11.5, weight: .medium)
                         .fixedSize(horizontal: false, vertical: true)
-
                 }
                 .foregroundStyle(session.themeTextColor.opacity(0.7))
                 .frame(maxWidth: .infinity)

@@ -27,6 +27,9 @@ final class LayoutVisualAuditTests: XCTestCase {
         let previousAppearance = session.isDarkMode
         let previousRemoteFlag = store.isApplyingHouseholdRemote
         let previousAppTextSize = UserDefaults.standard.object(forKey: "stocked.appTextSize")
+        let previousCoachmarks = Dictionary(uniqueKeysWithValues: CoachmarkPage.allCases.compactMap { page in
+            UserDefaults.standard.object(forKey: page.seenKey).map { (page.seenKey, $0) }
+        })
         defer {
             store.isApplyingHouseholdRemote = true
             store.inventoryItems = previousInventory
@@ -38,8 +41,17 @@ final class LayoutVisualAuditTests: XCTestCase {
             } else {
                 UserDefaults.standard.removeObject(forKey: "stocked.appTextSize")
             }
+            for page in CoachmarkPage.allCases {
+                if let previous = previousCoachmarks[page.seenKey] {
+                    UserDefaults.standard.set(previous, forKey: page.seenKey)
+                } else {
+                    UserDefaults.standard.removeObject(forKey: page.seenKey)
+                }
+            }
         }
         UserDefaults.standard.set(AppTextSize.standard.rawValue, forKey: "stocked.appTextSize")
+        // Screenshots must show the actual interface rather than first-visit tour overlays.
+        for page in CoachmarkPage.allCases { CoachmarkStore.markSeen(page) }
         store.isApplyingHouseholdRemote = true
         store.inventoryItems = inventoryFixture
         store.isApplyingHouseholdRemote = previousRemoteFlag
@@ -79,6 +91,8 @@ final class LayoutVisualAuditTests: XCTestCase {
                               scroll: true, view: AnyView(EditProfileView().stockedPresentationSurface()))
             try await capture("dietary-profile-sheet-\(label)", session: session, typeSize: typeSize,
                               scroll: true, view: AnyView(NavigationStack { DietaryProfileView() }.stockedPresentationSurface()))
+            try await capture("kitchen-transfer-\(label)", session: session, typeSize: typeSize,
+                              scroll: true, view: AnyView(NavigationStack { KitchenTransferView() }))
             try await capture("import-kitchen-sheet-\(label)", session: session, typeSize: typeSize,
                               view: AnyView(ImportModeSheet(onImportFile: {}, onMergeFile: {},
                                                            onICloud: {}, onMergeICloud: {}).stockedPresentationSurface()))

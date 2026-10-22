@@ -10,6 +10,7 @@ import SwiftUI
 @Observable
 @MainActor
 final class CustomRecipeSourceStore {
+    nonisolated deinit {}
     static let shared = CustomRecipeSourceStore()
 
     private static let key = "custom_recipe_sources_v1"

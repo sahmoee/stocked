@@ -4,6 +4,7 @@ import Observation
 @Observable
 @MainActor
 final class GlobalSearchController {
+    nonisolated deinit {}
     private(set) var localResults: [GlobalSearchView.SearchResult] = []
     private(set) var onlineResults: [OnlineRecipe] = []
     private(set) var isSearchingLocal = false

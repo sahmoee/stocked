@@ -17,6 +17,7 @@ import Observation
 
 @Observable
 final class RecipeBudgetState {
+    nonisolated deinit {}
     static let shared = RecipeBudgetState()
 
     private let key = "spoonacular_exhausted_day"

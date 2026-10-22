@@ -368,6 +368,7 @@ nonisolated struct QATicket: Identifiable, Codable, Sendable {
 @MainActor
 @Observable
 final class QATicketStore {
+    nonisolated deinit {}
     static let shared = QATicketStore()
 
     private(set) var tickets: [QATicket] = []

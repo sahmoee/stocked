@@ -91,6 +91,7 @@ struct UsageStat: Identifiable {
 
 @MainActor
 final class UsageMetrics {
+    nonisolated deinit {}
     static let shared = UsageMetrics()
     private init() { load() }
 

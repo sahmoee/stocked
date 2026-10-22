@@ -64,6 +64,7 @@ nonisolated struct QARun: Identifiable, Codable, Sendable {
 @MainActor
 @Observable
 final class QARunLog {
+    nonisolated deinit {}
     static let shared = QARunLog()
 
     private(set) var runs: [QARun] = []

@@ -212,7 +212,6 @@ struct StockedShell<Content: View>: View {
         .buttonStyle(.plain)
         .a11yButton(label.isEmpty ? "Action" : label)
     }
-
 }
 
 /// Stable app chrome geometry. Page content may adapt, but the brand header must not.
@@ -226,8 +225,6 @@ enum StockedChrome {
     static let headerTopPadding: CGFloat = 0
     static let headerBottomPadding: CGFloat = 4
 }
-
-
 
 // MARK: - KeyboardDismissView (#3)
 // UIViewRepresentable tap-dismissal doesn't intercept scroll or button taps,
@@ -245,12 +242,14 @@ private struct KeyboardDismissView: UIViewRepresentable {
 
     func makeCoordinator() -> Coordinator { Coordinator() }
     class Coordinator: NSObject {
+        nonisolated deinit {}
         @objc func tapped() { UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil) }
     }
 }
 
 // Transparent view that passes all touch events through
 private class PassthroughView: UIView {
+    nonisolated deinit {}
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let hit = super.hitTest(point, with: event)
         return hit == self ? nil : hit   // return nil for self — passes through

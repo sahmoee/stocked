@@ -143,7 +143,6 @@ struct SettingsContent: View {
         }
     }
 
-
     // MARK: - Helpers
     // Header label for an expandable preferences field (DisclosureGroup). Mirrors the
     // settingsRow icon-tile styling so the four fields read consistently.
@@ -250,10 +249,10 @@ struct SidebarContent: View {
 
             Section {
                 sidebarButton("Scan Receipt",      icon: "camera.viewfinder") { showReceipt   = true }
-                sidebarButton("Add Items",          icon: "plus.circle")       { showAddItems  = true }
-                sidebarButton("Global Search",      icon: "magnifyingglass")   { showSearch    = true }
-                sidebarButton("Stats",              icon: "chart.bar")         { showStats     = true }
-                sidebarButton("Databases",          icon: "cylinder.split.1x2"){ showDatabases = true }
+                sidebarButton("Add Items",          icon: "plus.circle") { showAddItems  = true }
+                sidebarButton("Global Search",      icon: "magnifyingglass") { showSearch    = true }
+                sidebarButton("Stats",              icon: "chart.bar") { showStats     = true }
+                sidebarButton("Databases",          icon: "cylinder.split.1x2") { showDatabases = true }
             } header: { sidebarHeader("Quick Actions") }
 
             Section {
@@ -268,7 +267,6 @@ struct SidebarContent: View {
                 BuildInfoFooter()
             }
             .listRowBackground(Color.clear)
-
         }
         .listStyle(.sidebar)
         .navigationTitle("Stocked.")
@@ -311,10 +309,11 @@ struct DrawerContent: View {
     // One enum drives a SINGLE .sheet(item:) (see DrawerSheet note above) so these present
     // reliably on the first tap instead of flashing open then closed.
     private enum HomeSheet: Int, Identifiable {
-        case helpCenter, usageInsights, toolbox, profileHub, settingsPage
+        case helpCenter, usageInsights, toolbox, profileHub
         var id: Int { rawValue }
     }
     @State private var activeHomeSheet: HomeSheet? = nil
+    @State private var showsSettings = false
     @State private var orderStore = DrawerOrderStore.shared   // rearrangeable drawer rows
     @Environment(AppSession.self) var session
     @Environment(\.stockedMotion) private var motion
@@ -403,6 +402,15 @@ struct DrawerContent: View {
             // Full scrollable list — mockup drawer: Kitchen Tools / Insights / Settings.
             // Tab navigation lives in the tab bar; the drawer is tools + settings only.
             List {
+                Section {
+                    drawerButton("Home Widgets", icon: "square.grid.2x2") { runQuick(.homeWidgets) {} }
+                    // The full Settings home — Preferences, Notifications, Data & Storage,
+                    // Account (Log Out / Delete Account), and Help Center all live there now.
+                    drawerButton("Settings", icon: "gearshape.fill") { showsSettings = true }
+                        .accessibilityLabel("Open kitchen settings")
+                        .accessibilityIdentifier("drawer.settings")
+                } header: { drawerHeader("Settings") }
+
                 // Kitchen Tools — rearrangeable. Long-press any row and drag to reorder;
                 // the order is remembered. Kitchen Toolbox lives here by default now.
                 Section {
@@ -423,14 +431,6 @@ struct DrawerContent: View {
                         orderStore.move(in: .insights, from: source, to: destination)
                     }
                 } header: { drawerHeader("Insights") }
-
-                Section {
-                    drawerButton("Home Widgets", icon: "square.grid.2x2") { runQuick(.homeWidgets) {} }
-                    // The full Settings home — Preferences, Notifications, Data & Storage,
-                    // Account (Log Out / Delete Account), and Help Center all live there now.
-                    drawerButton("Settings", icon: "gearshape.fill") { activeHomeSheet = .settingsPage }
-                } header: { drawerHeader("Settings") }
-
             }
             .listStyle(.sidebar)
             .scrollContentBackground(.hidden)
@@ -441,6 +441,19 @@ struct DrawerContent: View {
             session.themeBgColor.ignoresSafeArea()
                 .shadow(color: .black.opacity(0.2), radius: 20, x: 8, y: 0)
         }
+        .accessibilityHidden(showsSettings)
+        .overlay {
+            if showsSettings {
+                NavigationStack {
+                    SettingsPageView(
+                        onClose: { motion.animate(.navigation, intent: .spatial) { showDrawer = false } },
+                        onBack: { showsSettings = false }
+                    )
+                        .environment(session)
+                }
+                .background(session.themeBgColor)
+            }
+        }
         // Edit Profile opens from the chef row. All four present via one .sheet(item:).
         .sheet(item: $activeHomeSheet) { sheet in
             switch sheet {
@@ -448,7 +461,6 @@ struct DrawerContent: View {
             case .usageInsights: NavigationStack { UsageInsightsView().environment(session) }
             case .toolbox:       NavigationStack { KitchenToolboxView().environment(session) }
             case .profileHub:    EditProfileView().environment(session)
-            case .settingsPage:  NavigationStack { SettingsPageView().environment(session) }
             }
         }
         // (The Log Out confirmation moved to the Settings page along with its row.)
@@ -543,7 +555,10 @@ struct DrawerContent: View {
                     .foregroundStyle(session.themeTextColor.opacity(0.7)).frame(width: 26)
                 Text(title).scaledFont(15, weight: .medium, design: .serif).foregroundStyle(session.themeTextColor)
                 Spacer()
-            }.padding(.vertical, 8).padding(.horizontal, 14)
+            }
+            .padding(.vertical, 8).padding(.horizontal, 14)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .listRowBackground(Color.clear)
@@ -629,7 +644,6 @@ struct BuildInfoFooter: View {
         }
     }
 }
-
 
 // MARK: - Household Sync Sheet
 struct HouseholdSyncSheet: View {
@@ -936,7 +950,6 @@ struct PreferredStorePopout: View {
         .stockedPresentationSurface()
     }
 }
-
 
 // MARK: - #245 — Help Center (mockup Settings row)
 struct HelpCenterSheet: View {

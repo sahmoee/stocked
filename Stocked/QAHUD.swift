@@ -60,6 +60,7 @@ struct QAHUD: View {
 /// same promise the HUD always made — this just keeps it in more places.
 @MainActor
 final class QAHUDWindow {
+    nonisolated deinit {}
     static let shared = QAHUDWindow()
     private init() {}
 
