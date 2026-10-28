@@ -223,6 +223,7 @@ struct PurchaseDedupReviewView: View {
 /// quantity, which is exactly the double-count RL-007 exists to prevent. Uses the store's
 /// public arrays/mutators only, so sync and logging behave like any other edit.
 enum PurchaseImportMerge {
+    @discardableResult
     static func refreshExisting(in store: GuestDataStore,
                                 name: String,
                                 price: Double? = nil,
@@ -231,12 +232,16 @@ enum PurchaseImportMerge {
                                 expiry: Date? = nil,
                                 sizeAmount: Double? = nil,
                                 sizeUnit: String? = nil,
-                                origin: InventoryProposalOrigin = .groceryTransfer) {
+                                origin: InventoryProposalOrigin = .groceryTransfer,
+                                targetID: UUID? = nil,
+                                storage: StorageCategory? = nil,
+                                subZone: String? = nil,
+                                registerUndo: Bool = true) -> Bool {
         let key = PurchaseDedupEngine.normalizedName(name)
-        guard !key.isEmpty,
+        guard !key.isEmpty, HouseholdSync.shared.authorize(.inventoryEdit),
               let idx = store.inventoryItems.firstIndex(where: {
-                  PurchaseDedupEngine.normalizedName($0.name) == key
-              }) else { return }
+                  (targetID == nil || $0.id == targetID) && PurchaseDedupEngine.normalizedName($0.name) == key
+              }) else { return false }
         let existing = store.inventoryItems[idx]
         let provenance = FieldProvenance(sourceID: "\(origin.rawValue)-dedup-merge",
                                          sourceName: "Purchase duplicate review",
@@ -264,10 +269,20 @@ enum PurchaseImportMerge {
             changes: [proposal],
             mergePolicy: .storeCompatible
         )
-        store.applyProposalBatch(
+        let result = store.applyProposalBatch(
             batch,
             brandPreferences: store.cookingProfile.brandPreferences,
-            retailerID: storeName.flatMap { GroceryKnowledgeBase.retailer(matching: $0)?.id }
+            retailerID: storeName.flatMap { GroceryKnowledgeBase.retailer(matching: $0)?.id },
+            registerUndo: registerUndo
         )
+        guard result.changedItemIDs.contains(existing.id),
+              let updated = store.inventoryItems.firstIndex(where: { $0.id == existing.id }) else { return false }
+        if let storage {
+            var moved = store.inventoryItems[updated]
+            moved.storageCategory = storage
+            moved.subZone = subZone
+            store.inventoryItems[updated] = moved
+        }
+        return true
     }
 }

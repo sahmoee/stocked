@@ -114,9 +114,8 @@ struct InventoryView: View {
         // #16/#9 — accent- and case-insensitive search across name + brand + category.
         if !q.isEmpty {
             filtered = filtered.filter {
-                $0.name.searchMatches(q)
-                || ($0.brand?.searchMatches(q) ?? false)
-                || ($0.customCategory?.searchMatches(q) ?? false)
+                SearchNormalization.discoveryMatches([$0.name, $0.brand ?? "", $0.customCategory ?? "",
+                    $0.zone, $0.subZone ?? ""], query: q)
             }
         }
         // #5/#6 — sort by the chosen mode (default = use-first / soonest expiry).
@@ -1216,6 +1215,25 @@ struct InventoryItemRow: View {
         return item.level >= 0.66 ? "Full" : item.level >= 0.33 ? "Half" : "Low"
     }
 
+    private func consume(finishAll: Bool) {
+        guard let undo = session.guestStore.consumeInventory(id: item.id, finishAll: finishAll) else { return }
+        ToastCenter.shared.undo(finishAll ? "Finished \(item.name.displayNormalized)" : "Used one \(item.name.displayNormalized)") {
+            if !session.guestStore.undoInventoryConsumption(undo) {
+                ToastCenter.shared.info("Item or shopping list changed. Your newer changes were kept.")
+            }
+        }
+    }
+
+    private func markOpened() {
+        let history = InventoryOpenedHistory.shared
+        let date = Date()
+        guard history.markOpened(id: item.id, at: date,
+            activeIDs: Set(session.guestStore.inventoryItems.filter { $0.quantity > 0 && $0.level > 0 }.map(\.id))) else { return }
+        ToastCenter.shared.undo("Marked opened on this device") {
+            history.undoOpened(id: item.id, expected: date)
+        }
+    }
+
     var body: some View {
         Button {
             if let onSelect { onSelect(item.id) } else { activeRowSheet = .edit }
@@ -1285,7 +1303,8 @@ struct InventoryItemRow: View {
                 Spacer(minLength: 8)
 
                 if let d = item.daysUntilExpiry {
-                    Text(d < 0 ? "Expired" : d == 0 ? "Expires today" : d == 1 ? "Expires tomorrow" : "Expires in \(d) days")
+                    Text((item.fieldProvenance?["expiry"]?.badge == .estimated ? "Estimated: " : "") +
+                        (d < 0 ? "Expired" : d == 0 ? "Expires today" : d == 1 ? "Expires tomorrow" : "Expires in \(d) days"))
                         .scaledFont(12, weight: .semibold)
                         .foregroundStyle(d < 0 ? Color.red : d <= 1 ? Color.red.opacity(0.8) : Color.orange)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1306,7 +1325,23 @@ struct InventoryItemRow: View {
                 .stroke(item.isExpired ? Color.red.opacity(0.3) : session.inventoryGold.opacity(0.25), lineWidth: 0.7))
         }
         .buttonStyle(.plain)
+        .accessibilityAction(named: "Used one") { consume(finishAll: false) }
+        .accessibilityAction(named: "Finished") { consume(finishAll: true) }
+        .accessibilityAction(named: "Mark opened on this device") { markOpened() }
         .contextMenu {
+            Button { consume(finishAll: false) } label: {
+                Label("Used one", systemImage: "minus.circle")
+            }.disabled(item.quantity <= 0 || item.level <= 0)
+            Button { consume(finishAll: true) } label: {
+                Label("Finished", systemImage: "checkmark.circle")
+            }.disabled(item.quantity <= 0 || item.level <= 0)
+            Button { markOpened() } label: {
+                if let date = InventoryOpenedHistory.shared.openedDate(for: item.id) {
+                    Label("Opened \(date.formatted(date: .abbreviated, time: .omitted)) (this device)", systemImage: "shippingbox")
+                } else {
+                    Label("Mark opened (this device)", systemImage: "shippingbox")
+                }
+            }.disabled(item.quantity <= 0 || item.level <= 0 || InventoryOpenedHistory.shared.openedDate(for: item.id) != nil)
             Button { session.guestStore.updateInventoryLevel(id: item.id, level: min(1, item.level + 0.25)) } label: {
                 Label("Restock (+25%)", systemImage: "arrow.up.circle")
             }
@@ -1327,11 +1362,11 @@ struct InventoryItemRow: View {
             }
             Button {
                 // Move out of inventory and onto the grocery list (e.g. used it up, need to rebuy).
-                let removed = item
-                session.guestStore.addToGroceryIfMissing(item.name, recommended: true)
-                session.guestStore.removeInventoryItem(id: item.id)
+                guard let undo = session.guestStore.moveInventoryToGrocery(expected: item) else { return }
                 ToastCenter.shared.undo("Moved \(item.name.displayNormalized) to Grocery List") {
-                    session.guestStore.restoreInventoryItems([removed])
+                    if !session.guestStore.undoInventoryMove(undo) {
+                        ToastCenter.shared.info("Your newer household changes were kept.")
+                    }
                 }
             } label: {
                 Label("Move to Grocery List", systemImage: "cart.badge.plus")

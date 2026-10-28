@@ -731,15 +731,21 @@ struct HouseholdSettingsView: View {
     @State private var confirmLeave = false
     @State private var isSyncing = false
 
-    private var statusIsHealthy: Bool { household.syncStatus.lastError == nil }
+    private var statusIsHealthy: Bool {
+        !OfflineQueueCenter.shared.isOffline && household.syncStatus.lastError == nil
+            && household.pendingConflicts.isEmpty
+    }
     private var statusLine: String {
-        if household.isRepairingHouseholdStorage { return "Repairing household storage…" }
-        if !statusIsHealthy { return "Offline. Changes will sync later." }
-        return household.pendingOps.isEmpty ? "Up to date" : "\(household.pendingOps.count) change\(household.pendingOps.count == 1 ? "" : "s") waiting to sync"
+        HouseholdStatusPresentation.summary(isOffline: OfflineQueueCenter.shared.isOffline,
+            pending: household.pendingOps.count, conflicts: household.pendingConflicts.count,
+            error: household.syncStatus.lastError, isRepairing: household.isRepairingHouseholdStorage)
     }
     private var statusIcon: String {
         if household.isRepairingHouseholdStorage { return "wrench.and.screwdriver.fill" }
-        return statusIsHealthy ? (household.pendingOps.isEmpty ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath") : "wifi.slash"
+        if !household.pendingConflicts.isEmpty { return "exclamationmark.triangle.fill" }
+        if OfflineQueueCenter.shared.isOffline { return "wifi.slash" }
+        if household.syncStatus.lastError != nil { return "exclamationmark.arrow.triangle.2.circlepath" }
+        return household.pendingOps.isEmpty ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath"
     }
     private var lastSyncedText: String {
         let dates = [household.syncStatus.lastSuccessfulPush, household.syncStatus.lastSuccessfulPull].compactMap { $0 }
@@ -806,7 +812,8 @@ struct HouseholdSettingsView: View {
                     Task {
                         await household.syncNow(store: session.guestStore)
                         isSyncing = false
-                        if household.syncStatus.lastError == nil {
+                        if household.syncStatus.lastError == nil && household.pendingOps.isEmpty
+                            && household.pendingConflicts.isEmpty {
                             ToastCenter.shared.success("Synced with household")
                         } else {
                             ToastCenter.shared.info("Couldn't sync. Will retry automatically.")

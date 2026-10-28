@@ -76,6 +76,13 @@ final class PurchaseImportLog {
         pruneAndPersistIfChanged(force: true)
     }
 
+    /// Remove only this transaction's records when a guarded purchase transfer is undone.
+    func removeRecords(ids: Set<UUID>) {
+        guard !ids.isEmpty else { return }
+        records.removeAll { ids.contains($0.id) }
+        pruneAndPersistIfChanged(force: true)
+    }
+
     // MARK: Housekeeping
 
     private func pruneAndPersistIfChanged(force: Bool = false, now: Date = Date()) {

@@ -11,6 +11,18 @@ nonisolated enum InventoryFormPolicy {
         manuallySelected ? current : suggested
     }
 
+    /// Only undo the exact mutation we produced; a newer household edit wins.
+    static func permitsUndo<Value: Equatable>(live: Value, expected: Value) -> Bool {
+        live == expected
+    }
+
+    /// Consuming a container leaves unopened containers full; the final one becomes empty.
+    static func consumption(quantity: Int, level: Double, finishAll: Bool) -> (quantity: Int, level: Double)? {
+        guard quantity > 0, level > 0, level.isFinite else { return nil }
+        if finishAll || quantity == 1 { return (0, 0) }
+        return (quantity - 1, 1)
+    }
+
     static func editableQuantity(_ value: Int) -> Int { max(0, value) }
 
     static func editableFillLevel(_ value: Double) -> Double {

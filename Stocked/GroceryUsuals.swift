@@ -38,6 +38,40 @@ final class GroceryUsuals {
         }
     }
 
+    struct InventoryDefaults: Codable {
+        var name: String
+        var container: String
+        var zone: String
+        var recordedAt: Date
+        var sizeAmount: Double?
+        var sizeUnit: String?
+        var subZone: String?
+    }
+    private let inventoryDefaultsKey = "stocked.inventoryEntryDefaults.v1"
+
+    /// Local, bounded entry preferences survive finishing/removing a pantry row.
+    func inventoryDefaults(for name: String) -> InventoryDefaults? {
+        guard let data = UserDefaults.standard.data(forKey: inventoryDefaultsKey),
+              let entries = try? JSONDecoder().decode([InventoryDefaults].self, from: data) else { return nil }
+        return entries.last { normalize($0.name) == normalize(name) }
+    }
+
+    func recordInventoryDefaults(name: String, container: String, zone: String,
+                                 sizeAmount: Double? = nil, sizeUnit: String? = nil, subZone: String? = nil) {
+        let normalized = normalize(name)
+        guard !normalized.isEmpty else { return }
+        var entries: [InventoryDefaults] = []
+        if let data = UserDefaults.standard.data(forKey: inventoryDefaultsKey) {
+            entries = (try? JSONDecoder().decode([InventoryDefaults].self, from: data)) ?? []
+        }
+        entries.removeAll { normalize($0.name) == normalized }
+        entries.append(InventoryDefaults(name: name, container: container, zone: zone, recordedAt: Date(),
+            sizeAmount: sizeAmount, sizeUnit: sizeUnit, subZone: subZone))
+        if let data = try? JSONEncoder().encode(Array(entries.suffix(100))) {
+            UserDefaults.standard.set(data, forKey: inventoryDefaultsKey)
+        }
+    }
+
     /// Record that an item was added to the list (or bought). Call on add and on check-off.
     func record(_ name: String) {
         let n = normalize(name)

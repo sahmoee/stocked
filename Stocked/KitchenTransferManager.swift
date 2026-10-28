@@ -1042,6 +1042,7 @@ class KitchenTransferManager {
             store.displayName = snapshot.displayName
         }
         if selection.sections.contains(.inventory) {
+            if !selection.merge { InventoryOpenedHistory.shared.clear() }
             if selection.merge {
                 let existing = Set(store.inventoryItems.map { normKey($0.name) })
                 store.inventoryItems += snapshot.inventoryItems.filter { !existing.contains(normKey($0.name)) }

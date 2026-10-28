@@ -88,7 +88,6 @@ struct CookNowResultsView: View {
                     // More Possibilities destination for legacy deep links, but do not
                     // duplicate that same population below the normal results list.
                 }
-
             }
             .navigationDestination(isPresented: $goRecipe) {
                 if let openRecipe { UserRecipeDetailView(recipe: openRecipe) }
@@ -108,8 +107,8 @@ struct CookNowResultsView: View {
         .onChange(of: store.inventoryRevision) { _, _ in recompute() }
         .onChange(of: OnlineRecipesLoader.shared.revision) { _, _ in recompute() }
         .onDisappear { classificationTask?.cancel() }
-        .onChange(of: store.recipeRevision)    { _, _ in recompute() }
-        .onChange(of: store.planRevision)      { _, _ in recompute() }  // RL-006: plan edits move reservations
+        .onChange(of: store.recipeRevision) { _, _ in recompute() }
+        .onChange(of: store.planRevision) { _, _ in recompute() }  // RL-006: plan edits move reservations
         .sheet(item: $overridePayload) { payload in
             ReservationOverrideSheet(recipe: payload.recipe, touches: payload.touches) {
                 // Cook Anyway: the override is recorded; proceed into the recipe.
@@ -342,7 +341,7 @@ struct CookNowResultsView: View {
         case .readyWithSwap:   lead = "Ready with \(c.substitutionCount) swap\(c.substitutionCount == 1 ? "" : "s")"
         case .swapNeedsReview: lead = "\(c.reviewCount) swap\(c.reviewCount == 1 ? "" : "s") to review"
         case .missingOne, .missingTwo, .missingMany:
-            lead = "Missing \(c.missingCount): \(c.missingNames.prefix(2).map { $0.displayNormalized }.joined(separator: ", "))"
+            lead = c.availabilityGapsSummary
         case .excluded:        lead = "Not a fit"
         }
         if !c.recipe.cookTime.isEmpty { lead += " · \(c.recipe.cookTime)" }

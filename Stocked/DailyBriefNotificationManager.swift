@@ -16,7 +16,7 @@ final class DailyBriefNotificationManager {
     private var dailyTask: Task<Void, Never>?
     private var expiryTask: Task<Void, Never>?
     private nonisolated struct DailyCounts: Sendable { var expiring: Int; var low: Int }
-    private nonisolated struct ExpiryPlan: Sendable { var id: UUID; var name: String; var fireDate: Date }
+    private nonisolated struct ExpiryPlan: Sendable { var id: UUID; var name: String; var fireDate: Date; var isEstimated: Bool }
 
     // MARK: - Authorization
 
@@ -259,7 +259,8 @@ final class DailyBriefNotificationManager {
                         var comps = cal.dateComponents([.year, .month, .day], from: dayBefore)
                         comps.hour = fireHour; comps.minute = fireMinute
                         guard let fireDate = cal.date(from: comps), fireDate > now else { return nil }
-                        return .init(id: item.id, name: item.name, fireDate: fireDate)
+                        return .init(id: item.id, name: item.name, fireDate: fireDate,
+                            isEstimated: item.fieldProvenance?["expiry"]?.badge == .estimated)
                     }
             }.value
             guard !Task.isCancelled else { return }
@@ -267,8 +268,10 @@ final class DailyBriefNotificationManager {
             var requests: [UNNotificationRequest] = []
             for plan in plans {
             let content = UNMutableNotificationContent()
-            content.title = "Expiring tomorrow"
-            content.body  = "\(plan.name.displayNormalized) expires tomorrow — cook or use it soon."
+            let wording = ExpiryDatePresentation.reminder(name: plan.name.displayNormalized,
+                                                         isEstimated: plan.isEstimated)
+            content.title = wording.title
+            content.body = wording.body
             content.sound = .default
             // #17 — rich actions + per-item deep link: tag the category and carry the item's
             // id + name so the delegate can run "Add to Grocery"/"Mark Used" and open this exact item.
@@ -356,18 +359,20 @@ final class DailyBriefNotificationManager {
                      : names.count == 2 ? "\(names[0]) and \(names[1])"
                      : "\(names.prefix(2).joined(separator: ", ")), and more"
 
+        let dateSummary = ExpiryDatePresentation.soonSummary(items: itemList,
+            includesEstimate: expiring.contains { $0.fieldProvenance?["expiry"]?.badge == .estimated })
         let content = UNMutableNotificationContent()
         if let ready = readyPick {
             content.title = "Cook tonight, waste nothing"
-            content.body  = "Your \(itemList) \(expiring.count == 1 ? "is" : "are") expiring soon. You can make \(ready.recipe.title) right now to use \(ready.expiringUsed.count == 1 ? "it" : "them") up."
+            content.body = "\(dateSummary) You can make \(ready.recipe.title) with these ingredients."
             content.userInfo = ["action": "openCookRightNow"]
         } else if let fb = fallbackPick {
             content.title = "Use it up before it's gone"
-            content.body  = "\(itemList) \(expiring.count == 1 ? "is" : "are") expiring soon — \(fb.title) would put \(expiring.count == 1 ? "it" : "them") to use."
+            content.body = "\(dateSummary) Consider \(fb.title)."
             content.userInfo = ["action": "openCookRightNow"]
         } else {
-            content.title = "Expiring soon"
-            content.body  = "\(itemList) \(expiring.count == 1 ? "is" : "are") expiring soon — try to use \(expiring.count == 1 ? "it" : "them") up."
+            content.title = "Use-by reminders"
+            content.body = dateSummary
             content.userInfo = ["action": "openInventory"]
         }
         content.sound = .default

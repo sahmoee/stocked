@@ -47,12 +47,18 @@ struct PendingSyncBadge: View {
             // The offline strip above already says "changes save here" — this adds the count.
             return "\(changes) waiting · will sync when you're back online"
         }
-        return "Pending \(changes) · will sync"
+        if sync.syncStatus.lastError != nil || sync.syncStatus.hasStuckOperations {
+            return "\(changes) saved here · couldn't sync yet"
+        }
+        return "Pending \(changes) · waiting to sync"
     }
 
     var body: some View {
         VStack(spacing: 0) {
             if shouldShow {
+                Button {
+                    center.requestSync(reason: "badge-tap")
+                } label: {
                 HStack(spacing: 7) {
                     Image(systemName: center.isOffline
                           ? "tray.and.arrow.down"
@@ -77,12 +83,10 @@ struct PendingSyncBadge: View {
                 .background(Color.stockedGold.opacity(0.14))
                 .transition(.stockedMove(edge: .top).combined(with: .opacity))
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Pending changes will sync automatically")
-                .onTapGesture {
-                    // Manual nudge — harmless: requests are coalesced and rate-limited.
-                    center.requestSync(reason: "badge-tap")
+                .accessibilityLabel(label)
                 }
-                .accessibilityAddTraits(.isButton)
+                .buttonStyle(.plain)
+                .accessibilityHint("Requests another sync attempt. Open Household Settings to review conflicts.")
             }
         }
         .animation(StockedMotion.ui(.standard, intent: .opacity), value: shouldShow)

@@ -42,6 +42,7 @@ enum GrocerySheet: Identifiable {
     case scanList
     case cookLater(CookLaterContext)
     // RL-007 — flagged-duplicate review before checked items move into the pantry.
+    case pantryReview(GroceryPantryReviewContext)
     case purchaseReview(PurchaseDupReviewContext)
     var id: String {
         switch self {
@@ -49,6 +50,7 @@ enum GrocerySheet: Identifiable {
         case .share: return "share"
         case .scanList: return "scan-list"
         case .cookLater(let context): return "cook-later-\(context.id.uuidString)"
+        case .pantryReview(let context): return "pantry-review-\(context.id.uuidString)"
         case .purchaseReview(let context): return "purchase-review-\(context.id.uuidString)"
         }
     }
@@ -95,6 +97,9 @@ struct GroceryListView: View {
     @State private var showMoreDialog = false // #245 — header ··· (store/share/scan/move)
     @State private var sortAZ = false          // #245 — "Sort: Category / Name" pill
     @State private var quickAddName = ""
+    @State private var pantrySelections: [UUID: GroceryPantrySelection] = [:]
+    @State private var pantryReviewHistory: [PurchaseImportRecord] = []
+    @State private var pantryMergeTargets: [UUID: LocalInventoryItem] = [:]
     // RL-010 — optional "group by store" view mode. Off by default so the unified list
     // stays the primary experience; persisted so shoppers who organize by store keep it.
     @AppStorage("groceryGroupByStore_v1") private var groupByStore = false
@@ -160,10 +165,10 @@ struct GroceryListView: View {
                              "Meijer","Wegmans","Food Lion","Amazon Fresh"]
 
     private var store: GuestDataStore { session.guestStore }
-    private var dark: Bool   { session.isDarkMode }
+    private var dark: Bool { session.isDarkMode }
 
-    private var text: Color  { session.themeTextColor }
-    private var sub:  Color  { session.themeSecondaryText }
+    private var text: Color { session.themeTextColor }
+    private var sub:  Color { session.themeSecondaryText }
 
     // MARK: - Grouped sections (search-filtered)
     private func filteredItems(_ items: [LocalGroceryItem]) -> [LocalGroceryItem] {
@@ -181,7 +186,10 @@ struct GroceryListView: View {
             }
         }
         guard !searchText.isEmpty else { return result }
-        return result.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        return result.filter { item in
+            SearchNormalization.discoveryMatches([item.name, item.sizeText, item.recipeSource,
+                item.assignedTo, aisle(for: item.name).rawValue], query: searchText)
+        }
     }
 
     private var storeFilters: [String] {
@@ -294,18 +302,39 @@ struct GroceryListView: View {
     // MARK: - RL-007 dedupe-aware "move purchased → pantry"
 
     /// Entry point for both the whole-list "Move Checked → Pantry" action and the
-    /// per-store segment buttons. Runs the dedupe engine first: a clean bill transfers
-    /// immediately (the checked list is its own review); flagged items get the
-    /// Merge / Keep Both / Skip sheet before anything lands.
+    /// per-store segment buttons. Review selection, quantity and location first, then
+    /// resolve possible duplicate purchases before either list is changed.
     private func beginPantryTransfer(_ items: [LocalGroceryItem]) {
         guard !items.isEmpty else { return }
-        let candidates = items.map { g in
-            PurchaseImportCandidate(id: g.id, name: g.name, quantity: max(1, g.quantity),
-                                    store: resolvedStore(for: g), source: .shoppingTrip)
+        let selections = items.map { grocery in
+            let previous = store.inventoryItems
+                .filter { PurchaseDedupEngine.normalizedName($0.name) == PurchaseDedupEngine.normalizedName(grocery.name) }
+                .max { $0.updatedAt < $1.updatedAt }
+            let storage = previous?.storageCategory
+                ?? StorageCategory(rawValue: ReceiptDatabase.shared.guessZone(for: grocery.name)) ?? .pantry
+            return GroceryPantrySelection(original: grocery, quantity: max(1, grocery.quantity),
+                storage: storage, subZone: previous?.subZone, initialStorage: storage)
         }
+        grocerySheet = .pantryReview(GroceryPantryReviewContext(selections: selections))
+    }
+
+    private func reviewPantryDuplicates(_ selections: [GroceryPantrySelection]) {
+        pantrySelections = Dictionary(uniqueKeysWithValues: selections.map { ($0.id, $0) })
+        let candidates = selections.map { selection in
+            PurchaseImportCandidate(id: selection.id, name: selection.original.name, quantity: selection.quantity,
+                                    store: resolvedStore(for: selection.original), source: .shoppingTrip)
+        }
+        pantryMergeTargets = [:]
+        for selection in selections {
+            if let existing = store.inventoryItems.first(where: {
+                PurchaseDedupEngine.normalizedName($0.name) == PurchaseDedupEngine.normalizedName(selection.original.name)
+            }) { pantryMergeTargets[selection.id] = existing }
+        }
+        pantryReviewHistory = PurchaseImportLog.shared.records
         let flags = PurchaseDedupEngine.evaluate(candidates: candidates,
-                                                 history: PurchaseImportLog.shared.records)
+                                                 history: pantryReviewHistory)
         if flags.isEmpty {
+            grocerySheet = nil
             commitPantryTransfer(candidates: candidates, resolutions: [:])
         } else {
             grocerySheet = .purchaseReview(PurchaseDupReviewContext(
@@ -320,26 +349,85 @@ struct GroceryListView: View {
     /// either store is recognized as the same shopping.
     private func commitPantryTransfer(candidates: [PurchaseImportCandidate],
                                       resolutions: [UUID: PurchaseDupResolution]) {
+        // Recheck source rows and rights after every review sheet; a household may have
+        // edited or removed a purchase while it was open. Never erase those newer edits.
+        guard candidates.allSatisfy({ candidate in
+            guard let draft = pantrySelections[candidate.id] else { return false }
+            return store.groceryItems.contains(draft.original)
+        }) else {
+            loopMessage = "Your grocery list changed. Review the bought items again."
+            pantrySelections = [:]
+            return
+        }
+        guard PurchaseImportLog.shared.records == pantryReviewHistory else {
+            loopMessage = "Another purchase was added. Review these items again to check for duplicates."
+            return
+        }
+        guard candidates.filter({ resolutions[$0.id] == .merge }).allSatisfy({ candidate in
+            guard let target = pantryMergeTargets[candidate.id] else { return false }
+            return store.inventoryItems.contains(target)
+        }) else {
+            loopMessage = "The kitchen item changed or was removed. Review these purchases again."
+            return
+        }
+        let needsAdd = candidates.contains { (resolutions[$0.id] ?? .keepBoth) == .keepBoth }
+        let needsEdit = candidates.contains { resolutions[$0.id] == .merge }
+        guard (!needsAdd || HouseholdSync.shared.authorize(.inventoryAdd)),
+              (!needsEdit || HouseholdSync.shared.authorize(.inventoryEdit)),
+              HouseholdSync.shared.authorize(.groceryRemove) else {
+            loopMessage = "You don't have permission to put these groceries away."
+            return
+        }
+        let inventoryBefore = store.inventoryItems
+        let groceriesBefore = store.groceryItems
         let tripID = PurchaseImportLog.shared.currentTripID()
         let who = UserDefaults.standard.string(forKey: "householdMemberName_v1") ?? ""
         var moved = 0
         var importRecords: [PurchaseImportRecord] = []
         var additions: [ProposedChange] = []
+        var handled = Set<UUID>()
 
         for cand in candidates {
             guard let g = store.groceryItems.first(where: { $0.id == cand.id }) else { continue }
             switch resolutions[cand.id] ?? .keepBoth {
             case .skip:
-                break   // duplicate — never enters inventory
+                handled.insert(cand.id) // the user explicitly chose to discard a duplicate
             case .merge:
-                PurchaseImportMerge.refreshExisting(in: store, name: g.name,
-                                                    storeName: cand.store.isEmpty ? nil : cand.store,
-                                                    origin: .groceryTransfer)
+                guard let target = pantryMergeTargets[cand.id],
+                      let selection = pantrySelections[cand.id] else { continue }
+                if PurchaseImportMerge.refreshExisting(in: store, name: g.name,
+                    storeName: cand.store.isEmpty ? nil : cand.store,
+                    origin: .groceryTransfer, targetID: target.id,
+                    storage: selection.storage,
+                    subZone: selection.storage == selection.initialStorage ? selection.subZone : nil,
+                    registerUndo: false) {
+                    handled.insert(cand.id)
+                }
             case .keepBoth:
                 // Milk belongs in the fridge and peas in the freezer, not everything in Pantry.
                 var inv = LocalInventoryItem(name: g.name, level: 1.0,
                                              zone: ReceiptDatabase.shared.guessZone(for: g.name),
-                                             quantity: max(1, g.quantity))
+                                             quantity: cand.quantity)
+                if let selection = pantrySelections[cand.id] {
+                    inv.storageCategory = selection.storage
+                    // A shelf from another zone is not a valid location after changing zones.
+                    if selection.storage == selection.initialStorage { inv.subZone = selection.subZone }
+                }
+                let size = QuantityParser.parse("\(g.sizeText) \(g.name)")
+                if size.validationMessage == nil {
+                    if let amount = size.amountEach, let unit = size.unitEach {
+                        inv.sizeAmount = amount
+                        inv.sizeUnit = unit
+                        inv.containerType = size.container
+                    } else if QuantityParser.units.contains(size.container) || size.container == "fl oz" {
+                        // Legacy grocery sizes such as "14 oz" describe one package,
+                        // not fourteen containers. Keep the reviewed container count.
+                        inv.sizeAmount = size.count
+                        inv.sizeUnit = size.container
+                    } else if size.container != "item" {
+                        inv.containerType = size.container
+                    }
+                }
                 inv.purchaseDate     = Date()
                 inv.addedBy          = who
                 inv.storePurchasedAt = cand.store.isEmpty ? nil : cand.store
@@ -350,9 +438,10 @@ struct GroceryListView: View {
                     reason: "Moved from the grocery list"
                 ))
                 moved += 1
+                handled.insert(cand.id)
                 importRecords.append(PurchaseImportRecord(
                     normalizedName: PurchaseDedupEngine.normalizedName(g.name),
-                    displayName: g.name, quantity: max(1, g.quantity),
+                    displayName: g.name, quantity: cand.quantity,
                     store: cand.store, source: .shoppingTrip,
                     transactionKey: tripID, importedAt: Date()))
             }
@@ -366,19 +455,42 @@ struct GroceryListView: View {
                     mergePolicy: .storeCompatible
                 ),
                 brandPreferences: store.cookingProfile.brandPreferences,
-                retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id
+                retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id,
+                registerUndo: false
             )
         }
         // Every handled row leaves the list — skipped/merged lines were already bought
         // and accounted for; keeping them would just re-flag next time.
-        let handled = Set(candidates.map(\.id))
         withAnimation { store.groceryItems.removeAll { handled.contains($0.id) } }
         PurchaseImportLog.shared.record(importRecords)
+        let inventoryAfter = store.inventoryItems
+        let groceriesAfter = store.groceryItems
+        let recordedIDs = Set(importRecords.map(\.id))
+        ToastCenter.shared.undo("Put groceries away") {
+            let beforeIDs = Set(inventoryBefore.map(\.id))
+            let afterIDs = Set(inventoryAfter.map(\.id))
+            let editsExisting = inventoryBefore.contains { previous in
+                inventoryAfter.contains { $0.id == previous.id && $0 != previous }
+            }
+            guard store.inventoryItems == inventoryAfter, store.groceryItems == groceriesAfter,
+                  (!editsExisting || HouseholdSync.shared.authorize(.inventoryEdit)),
+                  (afterIDs.subtracting(beforeIDs).isEmpty || HouseholdSync.shared.authorize(.inventoryRemove)),
+                  (beforeIDs.subtracting(afterIDs).isEmpty || HouseholdSync.shared.authorize(.inventoryAdd)),
+                  HouseholdSync.shared.authorize(.groceryAdd) else {
+                ToastCenter.shared.warning("Your kitchen changed. Undo was left untouched to protect newer changes.")
+                return
+            }
+            store.inventoryItems = inventoryBefore
+            store.groceryItems = groceriesBefore
+            PurchaseImportLog.shared.removeRecords(ids: recordedIDs)
+        }
+        pantrySelections = [:]
 
         let segments = PurchaseImportLog.shared.storeSegments(forTrip: tripID)
         let segmentNote = segments.count > 1 ? " (\(segments.joined(separator: " + ")))" : ""
-        loopMessage = moved == 0
-            ? "Nothing new to add — duplicates skipped"
+        loopMessage = handled.count < candidates.count
+            ? "Some items couldn't be put away and remain on your grocery list."
+            : moved == 0 ? "Reviewed duplicates — existing quantities kept"
             : "Added \(moved) item\(moved == 1 ? "" : "s") to your kitchen\(segmentNote)"
         HapticManager.success()
     }
@@ -425,6 +537,11 @@ struct GroceryListView: View {
             case .cookLater(let context):
                 NavigationStack { CookLaterWorkspaceView(context: context).environment(session) }
                     .stockedPresentationSurface(width: .readable)
+            case .pantryReview(let context):
+                GroceryPantryReviewView(context: context, onContinue: { selections in
+                    reviewPantryDuplicates(selections)
+                }, onCancel: { grocerySheet = nil })
+                .environment(session)
             case .purchaseReview(let context):
                 PurchaseDedupReviewView(
                     context: context,
@@ -1226,7 +1343,6 @@ struct HandwrittenListScanner: View {
         }
     }
 }
-
 
 extension Notification.Name {
     /// Opens the Grocery tab's add field with the keyboard up (Home "Add Grocery Item").

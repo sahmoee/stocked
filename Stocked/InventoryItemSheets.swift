@@ -263,6 +263,11 @@ struct EditItemSheet: View {
                     .padding(.horizontal, 20).padding(.bottom, 20)
 
                     // ── Expiry ───────────────────────────────────────
+                    if let provenance = item.fieldProvenance?["expiry"], hasExpiry {
+                        Text(provenance.badge == .estimated ? "Estimated date — check the package" : provenance.sourceName)
+                            .scaledFont(12).foregroundStyle(session.themeSecondaryText)
+                            .padding(.horizontal, 20)
+                    }
                     ExpiryDateRow(hasExpiry: $hasExpiry, expiryDate: $expiryDate)
                         .padding(.horizontal, 20).padding(.bottom, 24)
 
@@ -437,6 +442,13 @@ struct EditItemSheet: View {
                         initial: InventoryFormPolicy.editableFillLevel(initial.level), draft: level)
                     updated.storageCategory = InventoryFormPolicy.mergeDraft(live: updated.storageCategory,
                         initial: initial.storageCategory, draft: StorageCategory(rawValue: zone) ?? .pantry)
+                    let draftExpiry = hasExpiry ? expiryDate : nil
+                    if draftExpiry != initial.expirationDate {
+                        var provenance = updated.fieldProvenance ?? [:]
+                        provenance["expiry"] = draftExpiry == nil ? nil : FieldProvenance(
+                            sourceID: "manual-expiry", sourceName: "Date entered by you", badge: .userAdded)
+                        updated.fieldProvenance = provenance
+                    }
                     updated.expirationDate = InventoryFormPolicy.mergeDraft(live: updated.expirationDate,
                         initial: initial.expirationDate, draft: hasExpiry ? expiryDate : nil)
                     updated.quantity = InventoryFormPolicy.mergeDraft(live: updated.quantity,
@@ -519,6 +531,12 @@ struct AddItemSheet: View {
     @State private var zone:           String
     @State private var zoneManuallySelected = false
     @State private var confirmDiscard = false
+    @State private var quantityManuallySelected = false
+    @State private var containerManuallySelected = false
+    @State private var measurementManuallySelected = false
+    @State private var rememberedSubZone: String?
+    @State private var automaticDefaultsName = ""
+    @State private var automaticDefaultsZone: String?
     @State private var quantity:       Int    = 1
     @State private var containerType:  String = ""
     // Combined size + current-amount control (e.g. "6 of 12 eggs"). totalUnits is how many the
@@ -533,6 +551,7 @@ struct AddItemSheet: View {
     @State private var sizeUnit:        String = ""
 
     // Step 3
+    @State private var seededExpiry: Date?
     @State private var hasExpiry:  Bool = false
     @State private var expiryDate: Date = Date().addingTimeInterval(7 * 86400)
 
@@ -741,6 +760,7 @@ struct AddItemSheet: View {
                     )
                     .scaledFont(16).foregroundStyle(session.themeTextColor)
                     .onChange(of: itemName) { _, name in
+                        synchronizeEntryDefaults()
                         if !name.isEmpty { nameTouched = true }
                         guard name.count >= 2 else { return }
                         // The zone follows what you're adding (so a seasoning lands on
@@ -790,6 +810,9 @@ struct AddItemSheet: View {
                 // Natural-language amount: "6 cans of 8 oz", "half a bag of chips" — fills
                 // the name (if empty), quantity, container, and per-container size below.
                 NaturalQuantityField { parsed in
+                    quantityManuallySelected = true
+                    containerManuallySelected = true
+                    measurementManuallySelected = true
                     if itemName.trimmingCharacters(in: .whitespaces).isEmpty, !parsed.item.isEmpty {
                         itemName = parsed.item.capitalized
                     }
@@ -802,7 +825,7 @@ struct AddItemSheet: View {
                     }
                 }
                 HStack(spacing: 0) {
-                    Button { if quantity > 1 { motion.animate(.selection, intent: .spatial) { quantity -= 1 } } } label: {
+                    Button { quantityManuallySelected = true; if quantity > 1 { motion.animate(.selection, intent: .spatial) { quantity -= 1 } } } label: {
                         Image(systemName: "minus")
                             .scaledFont(16, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
@@ -811,7 +834,7 @@ struct AddItemSheet: View {
                     Text("\(quantity)")
                         .scaledFont(22, weight: .bold, design: .serif)
                         .foregroundStyle(Color.stockedAccentInk).frame(minWidth: 50)
-                    Button { motion.animate(.selection, intent: .spatial) { quantity += 1 } } label: {
+                    Button { quantityManuallySelected = true; motion.animate(.selection, intent: .spatial) { quantity += 1 } } label: {
                         Image(systemName: "plus")
                             .scaledFont(16, weight: .semibold)
                             .foregroundStyle(session.themeTextColor)
@@ -824,19 +847,45 @@ struct AddItemSheet: View {
             .task(id: itemName) {
                 // Smart quantity/container defaults — only when the user hasn't set them.
                 // Own history first (typical purchase of this exact item), crowd second.
-                let name = itemName.trimmingCharacters(in: .whitespaces)
-                guard !name.isEmpty, quantity == 1, containerType.isEmpty else { return }
+                synchronizeEntryDefaults()
+                let requestName = automaticDefaultsName
+                let rawName = itemName.trimmingCharacters(in: .whitespaces)
+                let name = GroceryEntryPolicy.draft(rawName)?.name ?? rawName
+                guard !name.isEmpty else { return }
                 try? await Task.sleep(nanoseconds: 600_000_000)   // settle while typing
-                guard !Task.isCancelled else { return }
+                guard canApplyEntryDefaults(requestName: requestName) else { return }
                 let mine = session.guestStore.inventoryItems.filter { $0.name.caseInsensitiveCompare(name) == .orderedSame }
-                if let last = mine.last {
-                    if quantity == 1 { quantity = max(1, last.quantity) }
-                    if containerType.isEmpty, last.containerType != "item" { containerType = last.containerType }
+                if let last = mine.max(by: { $0.updatedAt < $1.updatedAt }) {
+                    if !zoneManuallySelected { zone = last.zone }
+                    if !quantityManuallySelected { quantity = max(1, last.quantity) }
+                    if !containerManuallySelected { containerType = last.containerType }
+                    if !measurementManuallySelected {
+                        sizeAmount = last.sizeAmount.map(ParsedAmount.trim) ?? ""
+                        sizeUnit = last.sizeUnit ?? ""
+                    }
+                    if !zoneManuallySelected {
+                        rememberedSubZone = last.subZone
+                        automaticDefaultsZone = last.zone
+                    }
+                    return
+                }
+                if let remembered = GroceryUsuals.shared.inventoryDefaults(for: name) {
+                    if !containerManuallySelected { containerType = remembered.container }
+                    if !zoneManuallySelected {
+                        zone = remembered.zone
+                        rememberedSubZone = remembered.subZone
+                        automaticDefaultsZone = remembered.zone
+                    }
+                    if !measurementManuallySelected {
+                        sizeAmount = remembered.sizeAmount.map(ParsedAmount.trim) ?? ""
+                        sizeUnit = remembered.sizeUnit ?? ""
+                    }
                     return
                 }
                 if let s = await CrowdDB.suggest(name: name), s.count >= 3 {
-                    if quantity == 1, let q = s.avgQuantity { quantity = max(1, Int(q.rounded())) }
-                    if containerType.isEmpty, let c = s.topContainer, c != "item" { containerType = c }
+                    guard canApplyEntryDefaults(requestName: requestName) else { return }
+                    if !quantityManuallySelected, let q = s.avgQuantity { quantity = max(1, Int(q.rounded())) }
+                    if !containerManuallySelected, let c = s.topContainer, c != "item" { containerType = c }
                 }
             }
 
@@ -847,7 +896,7 @@ struct AddItemSheet: View {
                     .foregroundStyle(session.themeSecondaryText)
                 Menu {
                     ForEach(ContainerType.all, id: \.self) { c in
-                        Button(c) { containerType = c }
+                        Button(c) { containerManuallySelected = true; containerType = c }
                     }
                 } label: {
                     HStack {
@@ -875,6 +924,7 @@ struct AddItemSheet: View {
                     Toggle("", isOn: Binding(
                         get: { hasAmount },
                         set: { newValue in
+                            measurementManuallySelected = true
                             motion.animate(.selection, intent: .spatial) { hasAmount = newValue }
                         }
                     )).labelsHidden()
@@ -984,7 +1034,7 @@ struct AddItemSheet: View {
                             Text("Amount per container")
                                 .scaledFont(12, weight: .medium)
                                 .foregroundStyle(session.themeSecondaryText)
-                            TextField("e.g. 16, 12, 1.5", text: $sizeAmount)
+                            TextField("e.g. 16, 12, 1.5", text: Binding(get: { sizeAmount }, set: { sizeAmount = $0; measurementManuallySelected = true }))
                                 .foregroundStyle(session.isDarkMode ? Color.stockedWhite : Color.stockedCharcoal)
                                 .scaledFont(15).foregroundStyle(session.themeTextColor)
                                 .keyboardType(.decimalPad)
@@ -999,7 +1049,7 @@ struct AddItemSheet: View {
                                 .foregroundStyle(session.themeSecondaryText)
                             Menu {
                                 ForEach(MeasurementUnit.all, id: \.self) { u in
-                                    Button(u) { sizeUnit = u }
+                                    Button(u) { measurementManuallySelected = true; sizeUnit = u }
                                 }
                             } label: {
                                 HStack {
@@ -1055,11 +1105,10 @@ struct AddItemSheet: View {
                     .padding(14)
                     .background(session.isDarkMode ? Color.darkSurface : Color.stockedWhite.opacity(0.4))
                     .clipShape(RoundedRectangle(cornerRadius: StockedUI.cornerRadiusMd))
-                    .onChange(of: hasExpiry) { _, on in
-                        // Smart default: when expiry is switched on, pre-fill a sensible date
-                        // based on where the item is stored, so the user confirms vs. types (#10).
-                        guard on else { return }
-                        if let estimate = estimatedExpiry { expiryDate = estimate; return }
+                    .onAppear {
+                        // Seed the picker before interaction; never replace a date the user selected.
+                        guard !hasExpiry else { return }
+                        if let estimate = estimatedExpiry { seededExpiry = estimate; expiryDate = estimate; return }
                         let days: TimeInterval
                         switch zone {
                         case "Freezer": days = 90
@@ -1067,7 +1116,9 @@ struct AddItemSheet: View {
                         case "Staples": days = 365
                         default:        days = 7      // Fridge
                         }
-                        expiryDate = Date().addingTimeInterval(days * 86400)
+                        let estimate = Date().addingTimeInterval(days * 86400)
+                        seededExpiry = estimate
+                        expiryDate = estimate
                     }
             }.padding(.horizontal, 20)
 
@@ -1104,28 +1155,76 @@ struct AddItemSheet: View {
         return ShelfLifeEstimator.estimate(name: name, zone: category).date
     }
 
+    /// Automatic suggestions belong to one item name; explicit choices survive a rename.
+    private func entryDefaultsKey(_ raw: String) -> String {
+        let name = GroceryEntryPolicy.draft(raw)?.name ?? raw
+        return name.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
+    private func synchronizeEntryDefaults() {
+        let key = entryDefaultsKey(itemName)
+        guard key != automaticDefaultsName else { return }
+        automaticDefaultsName = key
+        automaticDefaultsZone = nil
+        rememberedSubZone = nil
+        if !quantityManuallySelected { quantity = 1 }
+        if !containerManuallySelected { containerType = "" }
+        if !measurementManuallySelected { sizeAmount = ""; sizeUnit = "" }
+        if !zoneManuallySelected {
+            let name = GroceryEntryPolicy.draft(itemName)?.name ?? itemName
+            zone = ZoneClassifier.classify(name).rawValue
+        }
+    }
+
+    private func canApplyEntryDefaults(requestName: String) -> Bool {
+        !Task.isCancelled && requestName == automaticDefaultsName && requestName == entryDefaultsKey(itemName)
+    }
+
     private func saveItem() {
-        let name = itemName.trimmingCharacters(in: .whitespaces)
-        guard !name.isEmpty else { return }
+        synchronizeEntryDefaults()
+        guard let draft = GroceryEntryPolicy.draft(itemName) else {
+            ToastCenter.shared.warning("Enter an item with a valid quantity.")
+            return
+        }
+        let name = draft.name
+        let explicitEntry = name.caseInsensitiveCompare(itemName.trimmingCharacters(in: .whitespacesAndNewlines)) != .orderedSame
+        let package = QuantityParser.parse(draft.sizeText + " " + name)
+        let savedQuantity = explicitEntry && !quantityManuallySelected ? draft.quantity : quantity
+        let savedContainer = explicitEntry && !containerManuallySelected && !draft.sizeText.isEmpty ? package.container : containerType
+        let savedAmount = explicitEntry && !measurementManuallySelected && package.amountEach != nil ? package.amountEach : Double(sizeAmount)
+        let savedUnit = explicitEntry && !measurementManuallySelected && package.unitEach != nil ? package.unitEach : (sizeUnit.isEmpty ? nil : sizeUnit)
+        let savedSubZone = !zoneManuallySelected && automaticDefaultsName == entryDefaultsKey(name) &&
+            automaticDefaultsZone == zone ? rememberedSubZone : nil
         // Derive the fill level from the current-amount control if used ("6 of 12" → 0.5).
         let derivedLevel = (hasAmount && totalUnits > 0) ? max(0.0, min(1.0, currentUnits / totalUnits)) : 1.0
         var item = LocalInventoryItem(
             name: name, level: derivedLevel, zone: zone,
-            quantity: quantity,
-            containerType: containerType.isEmpty ? "item" : containerType,
-            sizeAmount: hasAmount ? totalUnits : Double(sizeAmount),
-            sizeUnit: sizeUnit.isEmpty ? nil : sizeUnit
+            quantity: savedQuantity,
+            containerType: savedContainer.isEmpty ? "item" : savedContainer,
+            sizeAmount: hasAmount ? totalUnits : savedAmount,
+            sizeUnit: savedUnit
         )
         item.expirationDate   = hasExpiry ? expiryDate : nil
+        if hasExpiry {
+            let estimated = expiryDate == seededExpiry
+            item.fieldProvenance = ["expiry": FieldProvenance(
+                sourceID: estimated ? "shelf-life-estimate" : "manual-expiry",
+                sourceName: estimated ? "Shelf-life estimate" : "Date entered by you",
+                badge: estimated ? .estimated : .userAdded)]
+        }
+        item.subZone = savedSubZone
         item.storePurchasedAt = session.preferredStore
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        let proposal = InventoryProposalBatch.reviewableAdd(
+        var proposal = InventoryProposalBatch.reviewableAdd(
             item: item,
             origin: .manual,
             sourceID: "manual-add",
             badge: .userAdded,
             reason: "Added manually"
         )
+        if let expirySource = item.fieldProvenance?["expiry"] {
+            proposal.fieldProvenance[.expiry] = expirySource
+        }
         session.guestStore.applyProposalBatch(
             InventoryProposalBatch(
                 origin: .manual,
@@ -1136,6 +1235,8 @@ struct AddItemSheet: View {
             brandPreferences: session.guestStore.cookingProfile.brandPreferences,
             retailerID: GroceryKnowledgeBase.retailer(matching: session.preferredStore)?.id
         )
+        GroceryUsuals.shared.recordInventoryDefaults(name: name, container: item.containerType, zone: zone,
+            sizeAmount: item.sizeAmount, sizeUnit: item.sizeUnit, subZone: item.subZone)
         UsageMetrics.shared.record(.itemAddedManual)
         // Crowd DB — opt-in anonymized report of item facts (fire and forget).
         let rn = name, rc = zone, ru = sizeUnit, rct = item.containerType, rq = Double(quantity)
@@ -1226,7 +1327,7 @@ struct AddItemSheet: View {
     }
 
     // Computed property to avoid closure capture issue
-    private var name: String { InventoryFormPolicy.normalizedName(itemName) }
+    private var name: String { GroceryEntryPolicy.draft(itemName)?.name ?? InventoryFormPolicy.normalizedName(itemName) }
     // True once the user has interacted with the name field and left it empty (#9).
     private var showNameError: Bool { nameTouched && name.isEmpty }
 }
@@ -1503,11 +1604,13 @@ struct ExpiryDateRow: View {
                         .scaledFont(11)
                         .foregroundStyle(session.themeTextColor.opacity(0.7))
                 }
-                DatePicker("", selection: $expiryDate, in: Date()..., displayedComponents: .date)
+                DatePicker("", selection: Binding(get: { expiryDate }, set: { date in
+                    expiryDate = date
+                    hasExpiry = true
+                }), in: Date()..., displayedComponents: .date)
                     .datePickerStyle(.compact)
                     .tint(Color.stockedGold)
                     .labelsHidden()
-                    .onChange(of: expiryDate) { _, _ in hasExpiry = true }
             }
         }
     }

@@ -39,7 +39,7 @@ nonisolated struct GlobalSearchLocalOutput: Sendable {
 
 nonisolated enum GlobalSearchEngine {
     static func normalizedQuery(_ raw: String) -> String {
-        raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        SearchNormalization.fold(raw)
     }
 
     static func search(_ raw: String, snapshot: GlobalSearchSnapshot) throws -> GlobalSearchLocalOutput {
@@ -56,50 +56,50 @@ nonisolated enum GlobalSearchEngine {
         for item in snapshot.inventory {
             try Task.checkCancellation()
             let title = item.name.lowercased()
-            if title.contains(query) { window.consider(id: item.id.uuidString, title: title, score: title == query ? 100 : 80, value: .inventory(item)) }
+            if SearchNormalization.discoveryMatches([item.name, item.brand ?? "", item.customCategory ?? "", item.zone, item.subZone ?? ""], query: query) { window.consider(id: item.id.uuidString, title: title, score: SearchNormalization.fold(title) == query ? 100 : SearchNormalization.matches(title, query: query) ? 80 : 55, value: .inventory(item)) }
         }
         collect(window); window = .init(limit: 12)
         for item in snapshot.leftovers {
             try Task.checkCancellation()
-            if item.title.lowercased().contains(query) {
+            if item.title.searchMatches(query) {
                 window.consider(id: item.id.uuidString, title: item.title, score: item.daysLeft <= 1 ? 90 : 68, value: .leftover(item))
             }
         }
         collect(window); window = .init(limit: 12)
         for item in snapshot.labels {
             try Task.checkCancellation()
-            if item.contents.lowercased().contains(query) { window.consider(id: item.id.uuidString, title: item.contents, score: 66, value: .label(item)) }
+            if item.contents.searchMatches(query) { window.consider(id: item.id.uuidString, title: item.contents, score: 66, value: .label(item)) }
         }
         collect(window); window = .init(limit: 12)
         for item in snapshot.groceries {
             try Task.checkCancellation()
-            if item.name.lowercased().contains(query) { window.consider(id: item.id.uuidString, title: item.name, score: 70, value: .grocery(item)) }
+            if SearchNormalization.discoveryMatches([item.name, item.recipeSource, item.assignedTo], query: query) { window.consider(id: item.id.uuidString, title: item.name, score: SearchNormalization.matches(item.name, query: query) ? 70 : 45, value: .grocery(item)) }
         }
         collect(window); window = .init(limit: 12)
         for item in snapshot.meals {
             try Task.checkCancellation()
-            if !item.isBuilding && item.title.lowercased().contains(query) { window.consider(id: item.id.uuidString, title: item.title, score: 72, value: .meal(item)) }
+            if !item.isBuilding && item.title.searchMatches(query) { window.consider(id: item.id.uuidString, title: item.title, score: 72, value: .meal(item)) }
         }
         collect(window); window = .init(limit: 12)
         for item in snapshot.recipes {
             try Task.checkCancellation()
             guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(item.imageURL ?? "") else { continue }
             let title = item.title.lowercased()
-            let score: Double = title == query ? 100 : title.contains(query) ? 75 :
-                item.ingredients.contains(where: { $0.name.lowercased().contains(query) }) ? 60 : 0
+            let score: Double = title == query ? 100 : title.searchMatches(query) ? 75 :
+                item.ingredients.contains(where: { $0.name.searchMatches(query) }) ? 60 : 0
             if score > 0 { window.consider(id: "recipe_\(item.id)", title: title, score: score, value: .recipe(item)) }
         }
         // Saved recipes and history share the existing Recipes group, with the original ladder.
         for item in snapshot.history {
             try Task.checkCancellation()
-            if item.title.lowercased().contains(query) { window.consider(id: "history_\(item.id)", title: item.title, score: 65, value: .history(item)) }
+            if item.title.searchMatches(query) { window.consider(id: "history_\(item.id)", title: item.title, score: 65, value: .history(item)) }
         }
         var cachedWindow = GlobalSearchRanking<GlobalSearchLocalMatch>(limit: 8)
         for item in snapshot.cached {
             try Task.checkCancellation()
             guard !RecipeDisplayPolicy.isKnownPublisherPlaceholder(item.imageURL) else { continue }
-            let rawMatch = [item.title, item.area, item.category].contains { $0.lowercased().contains(query) } ||
-                item.ingredients.contains { $0.lowercased().contains(query) }
+            let rawMatch = [item.title, item.area, item.category].contains { $0.searchMatches(query) } ||
+                item.ingredients.contains { $0.searchMatches(query) }
             guard rawMatch else { continue }
             if parsed.hasStructure {
                 let classification = RecipeClassifier.classify(title: item.title, rawCuisine: item.area,

@@ -31,6 +31,13 @@ struct StockedChangelog {
 
     // ── PENDING (not yet confirmed working — do NOT add here yet) ────────────
     // Next build candidates:
+    //   • Everyday kitchen workflow pass (awaiting device acceptance):
+    //       – Quick quantity entry, remembered package sizes and storage locations
+    //       – Review bought groceries before putting them away; complete guarded undo
+    //       – Used one / Finished actions and device-local opened dates
+    //       – Clear estimated use-by dates and reminders
+    //       – Search locations and spelling variants; clearer cooking ingredient gaps
+    //       – Honest household sync status and safer permission-aware shopping moves
     //   • Onboarding quiz responsive layout (all iPhone screen sizes)
     //   • Settings collapsible dropdown
     //   • Expanded font picker with 14 named fonts + custom font import
@@ -4292,7 +4299,6 @@ struct StockedChangelog {
                 ChangelogEntry(icon: "icloud.fill",          color: Color(red:0.27,green:0.56,blue:0.87), title: "Full Data Clear",         detail: "Clearing app data now wipes everything: pantry, grocery list, meals, recipes, settings, iCloud backup, and sign-in session."),
             ]
         ),
-
 
         // ── 0.0.1 — Pre-release reference ────────────────────────────────────
         ChangelogVersion(

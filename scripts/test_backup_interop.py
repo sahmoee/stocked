@@ -58,6 +58,7 @@ final class GuestDataStore {
  var savedGeneratedRecipes: [GeneratedRecipe] = []; var plannedMeals: [PlannedMeal] = []
  func flushPendingSaves() {}
 }
+final class InventoryOpenedHistory { static let shared = InventoryOpenedHistory(); var clears = 0; func clear() { clears += 1 } }
 final class HouseholdSync { static let shared = HouseholdSync(); var activitySuppressed = false }
 final class StockedPhoneWatchBridge { static let shared = StockedPhoneWatchBridge(); var invalidations = 0; func invalidateKitchen() throws { invalidations += 1 } }
 final class Session { func applyPreferences(_ p: KitchenPreferences) {} }
@@ -70,7 +71,7 @@ final class KitchenTransferManager {
  __READABLE__
  __LENIENT__
  __APPLY__
- func restore(_ data: Data, into store: GuestDataStore) throws { try apply(decodeBackup(data).snapshot, into: store, selection: KitchenRestoreSelection()) }
+ func restore(_ data: Data, into store: GuestDataStore, merge: Bool = false) throws { var selection = KitchenRestoreSelection(); selection.merge = merge; try apply(decodeBackup(data).snapshot, into: store, selection: selection) }
 }
 '''
 CHECKS = r'''
@@ -116,6 +117,12 @@ CHECKS = r'''
   var failed: [String] = []; var count = 0
   func check(_ name: String, _ ok: Bool) { count += 1; print("\(ok ? "PASS" : "FAIL") \(name)"); if !ok { failed.append(name) } }
   let manager = KitchenTransferManager()
+  let clears = InventoryOpenedHistory.shared.clears
+  let freshStore = GuestDataStore()
+  try manager.restore(Data(#"{"inventoryItems":[],"groceryItems":[]}"#.utf8), into: freshStore, merge: true)
+  check("merge restore preserves device opened metadata", InventoryOpenedHistory.shared.clears == clears)
+  try manager.restore(Data(#"{"inventoryItems":[],"groceryItems":[]}"#.utf8), into: freshStore)
+  check("replace restore clears stale device opened metadata", InventoryOpenedHistory.shared.clears == clears + 1)
   for (name, text) in [
    ("unknown", "{\"unrelated\":[1]}"),
    ("metadata-only", "{\"schemaVersion\":3,\"displayName\":\"Unknown\"}"),

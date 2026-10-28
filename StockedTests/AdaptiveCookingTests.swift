@@ -18,6 +18,23 @@ import XCTest
 
 final class AdaptiveCookingTests: XCTestCase {
 
+    func testKitchenCheckUncertaintyIsNotReportedAsMissingStock() {
+        let recipe = UserRecipe(title: "Soup")
+        let uncertain = ClassifiedRecipe(recipe: recipe, readiness: .missingOne, resolutions: [
+            .init(name: "carrots", amount: "2", status: .unconfirmed)
+        ])
+        XCTAssertTrue(uncertain.availabilityGapsSummary.contains("Check 1:"))
+        XCTAssertFalse(uncertain.availabilityGapsSummary.contains("Missing"))
+        let mixed = ClassifiedRecipe(recipe: recipe, readiness: .missingTwo, resolutions: [
+            .init(name: "carrots", amount: "2", status: .unconfirmed),
+            .init(name: "stock", amount: "1 cup", status: .missing)
+        ])
+        XCTAssertTrue(mixed.availabilityGapsSummary.contains("Missing 1:"))
+        XCTAssertTrue(mixed.availabilityGapsSummary.contains("Check 1:"))
+        XCTAssertEqual(mixed.unresolvedCount, 2)
+        XCTAssertEqual(mixed.missingNames, ["stock"], "Shopping adds only known missing items")
+    }
+
     // MARK: - SideSuggestionEngine
 
     func testSideSuggestionsRespectRemainingWindow() {

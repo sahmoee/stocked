@@ -77,6 +77,7 @@ final class FeatureStore<Element: Codable & Sendable> {
 /// `nonisolated` because App Intents (#17) read these files off the main actor while the app is
 /// closed. They're immutable string constants, so there is nothing to isolate.
 nonisolated enum FeatureStoreKeys {
+    static let inventoryOpened = "inventoryOpened_v1"
     static let leftovers       = "leftovers_v1"
     static let familyProfiles  = "familyProfiles_v1"
     static let events          = "kitchenEvents_v1"
@@ -96,7 +97,7 @@ nonisolated enum FeatureStoreKeys {
     static let communityPriceWatches = "communityPriceWatches_v1"
 
     static let all: [String] = [
-        leftovers, familyProfiles, events, sharedExpenses, storeLayouts,
+        inventoryOpened, leftovers, familyProfiles, events, sharedExpenses, storeLayouts,
         takeoutLog, gardenHarvests, containerLabels, toolboxUsage,
         syncConflicts, notifyEngagement, householdCookPresence,
         scheduledMeals, mealPlanRules, mealPlanTemplates, smartCookbooks, communityPriceWatches,

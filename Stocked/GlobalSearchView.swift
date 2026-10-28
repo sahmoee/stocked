@@ -163,16 +163,16 @@ struct GlobalSearchView: View {
         let labels    = all.filter { if case .containerLabel = $0 { return true }; return false }
 
         var groups: [(String, [SearchResult])] = []
-        if !pantry.isEmpty    { groups.append(("In Your Pantry", pantry)) }
+        if !pantry.isEmpty { groups.append(("In Your Pantry", pantry)) }
         // Leftovers sit directly under the pantry: they're food you have, just in a different form.
         if !leftovers.isEmpty { groups.append(("Leftovers", leftovers)) }
-        if !labels.isEmpty    { groups.append(("Labelled Containers", labels)) }
-        if !grocery.isEmpty   { groups.append(("Grocery List", grocery)) }
-        if !meals.isEmpty     { groups.append(("Planned Meals", meals)) }
-        if !recipes.isEmpty   { groups.append(("Recipes", recipes)) }
-        if !tools.isEmpty     { groups.append(("Tools", tools)) }
-        if !online.isEmpty    { groups.append(("Online", online)) }
-        if !foods.isEmpty     { groups.append(("Ingredients", foods)) }
+        if !labels.isEmpty { groups.append(("Labelled Containers", labels)) }
+        if !grocery.isEmpty { groups.append(("Grocery List", grocery)) }
+        if !meals.isEmpty { groups.append(("Planned Meals", meals)) }
+        if !recipes.isEmpty { groups.append(("Recipes", recipes)) }
+        if !tools.isEmpty { groups.append(("Tools", tools)) }
+        if !online.isEmpty { groups.append(("Online", online)) }
+        if !foods.isEmpty { groups.append(("Ingredients", foods)) }
         return groups
     }
 
@@ -365,26 +365,7 @@ struct GlobalSearchView: View {
     @ViewBuilder
     private func rowView(_ r: SearchResult) -> some View {
         VStack(spacing: 0) {
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle().fill(r.sourceTint.opacity(0.15)).frame(width: 42, height: 42)
-                    Image(systemName: r.icon).scaledFont(16).foregroundStyle(r.sourceTint)
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(r.displayTitle).scaledFont(14, weight: .semibold, design: .serif)
-                        .foregroundStyle(session.themeTextColor)
-                    Text(r.subtitle).scaledFont(12)
-                        .foregroundStyle(session.themeSecondaryText).fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                Text(r.sourceLabel).scaledFont(9, weight: .bold)
-                    .foregroundStyle(r.sourceTint)
-                    .padding(.horizontal, 7).padding(.vertical, 3)
-                    .background(r.sourceTint.opacity(0.12)).clipShape(Capsule())
-            }
-            .padding(.horizontal, 20).padding(.vertical, 11).contentShape(Rectangle())
-            .accessibilityAddTraits(.isButton)
-            .onTapGesture {
+            Button {
                 focused = false
                 // Popularity ranking (#19) and recent searches; this was never called before.
                 handleSelect(r)
@@ -426,7 +407,28 @@ struct GlobalSearchView: View {
                     ToolboxUsageStore.shared.recordOpen(tool)
                     selectedTool = tool
                 }
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        Circle().fill(r.sourceTint.opacity(0.15)).frame(width: 42, height: 42)
+                        Image(systemName: r.icon).scaledFont(16).foregroundStyle(r.sourceTint)
+                    }
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(r.displayTitle).scaledFont(14, weight: .semibold, design: .serif)
+                            .foregroundStyle(session.themeTextColor)
+                        Text(r.subtitle).scaledFont(12)
+                            .foregroundStyle(session.themeSecondaryText).fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer()
+                    Text(r.sourceLabel).scaledFont(9, weight: .bold)
+                        .foregroundStyle(r.sourceTint)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(r.sourceTint.opacity(0.12)).clipShape(Capsule())
+                }
+                .padding(.horizontal, 20).padding(.vertical, 11).contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
             Divider().padding(.leading, 76)
         }
     }
@@ -442,7 +444,7 @@ struct IngredientInfoSheet: View {
 
     private var shelfText: String {
         if entry.typicalShelfDays >= 365 { return "About a year or more (shelf-stable)" }
-        if entry.typicalShelfDays >= 30  { return "About \(entry.typicalShelfDays / 30) month\(entry.typicalShelfDays / 30 == 1 ? "" : "s")" }
+        if entry.typicalShelfDays >= 30 { return "About \(entry.typicalShelfDays / 30) month\(entry.typicalShelfDays / 30 == 1 ? "" : "s")" }
         return "About \(entry.typicalShelfDays) day\(entry.typicalShelfDays == 1 ? "" : "s")"
     }
 

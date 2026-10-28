@@ -21,6 +21,15 @@ import Foundation
         precondition(InventoryFormPolicy.mergeDraft(live: 8, initial: 2, draft: 3) == 3)
         precondition(InventoryFormPolicy.mergeDraft(live: "Freezer", initial: "Fridge", draft: "Fridge") == "Freezer")
         precondition(InventoryFormPolicy.mergeDraft(live: Optional("new"), initial: nil, draft: nil) == "new")
-        print("PASS: 19 Inventory form policy checks (native pure logic; not device UI verification)")
+        precondition(InventoryFormPolicy.consumption(quantity: 2, level: 0.4, finishAll: false)?.quantity == 1)
+        precondition(InventoryFormPolicy.consumption(quantity: 2, level: 0.4, finishAll: false)?.level == 1)
+        precondition(InventoryFormPolicy.consumption(quantity: 1, level: 1, finishAll: false)?.quantity == 0)
+        precondition(InventoryFormPolicy.consumption(quantity: 9, level: 1, finishAll: true)?.level == 0)
+        precondition(InventoryFormPolicy.consumption(quantity: 0, level: 1, finishAll: false) == nil)
+        precondition(InventoryFormPolicy.consumption(quantity: 2, level: .nan, finishAll: true) == nil)
+        precondition(InventoryFormPolicy.consumption(quantity: 2, level: 0, finishAll: true) == nil)
+        precondition(InventoryFormPolicy.permitsUndo(live: 5, expected: 5))
+        precondition(!InventoryFormPolicy.permitsUndo(live: 6, expected: 5))
+        print("PASS: 28 Inventory form policy checks (native pure logic; not device UI verification)")
     }
 }

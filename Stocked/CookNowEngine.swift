@@ -161,6 +161,23 @@ nonisolated struct ClassifiedRecipe: Identifiable, Codable, Sendable, Equatable 
         resolutions.compactMap { if case .missing = $0.status { return $0.name }; return nil }
     }
 
+    /// Explain known gaps separately from ingredients whose availability is uncertain.
+    /// Do not turn Kitchen Check's “not sure” answer into a claim of missing stock.
+    var availabilityGapsSummary: String {
+        var parts: [String] = []
+        if missingCount > 0 {
+            parts.append("Missing \(missingCount): \(missingNames.prefix(2).map { $0.displayNormalized }.joined(separator: ", "))")
+        }
+        let uncertain = resolutions.compactMap { resolution -> String? in
+            if case .unconfirmed = resolution.status { return resolution.name.displayNormalized }
+            return nil
+        }
+        if !uncertain.isEmpty {
+            parts.append("Check \(uncertain.count): \(uncertain.prefix(2).joined(separator: ", "))")
+        }
+        return parts.joined(separator: " · ")
+    }
+
     /// Grouped one-line readiness summary, e.g. "9 exact · 1 substitution · 1 missing".
     /// Only non-zero groups are shown, so it stays honest and compact.
     var groupedSummary: String {

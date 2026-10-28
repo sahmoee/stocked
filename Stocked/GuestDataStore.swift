@@ -896,32 +896,45 @@ class GuestDataStore {
             UserDefaults.standard.set("Some saved connection keys could not be removed. Unlock this device and retry removal in Free Kitchen Connections.", forKey: "stocked.freeConnections.resetWarning.v1")
         }
         SyncConflictLog.shared.clear()
+        InventoryOpenedHistory.shared.clear()
         return true
     }
 
-    func addGroceryItem(name: String) {
-        // #GQ — manual adds of an existing item bump its quantity instead of being
-        // silently dropped: recipe 4 + recipe 3 + manual 1 = one row showing 8.
-        if GroceryDedup.isDuplicate(name, in: groceryItems.map { $0.name }) {
-            let key = GroceryConsolidator.normalizeKey(name)
-            if let idx = groceryItems.firstIndex(where: { GroceryConsolidator.normalizeKey($0.name) == key }) {
-                groceryItems[idx].quantity += 1
-            }
+    func addGroceryItem(name rawName: String) {
+        guard HouseholdSync.shared.myCanEdit else { return }
+        guard let draft = GroceryEntryPolicy.draft(rawName) else {
+            ToastCenter.shared.warning("Enter an item with a valid quantity.")
             return
         }
-        // #D2 duplicate-purchase guard — if it's already stocked, say so (still adds:
-        // buying more can be intentional, but "you have 2 already" prevents the classic
-        // three-cans-of-chickpeas mistake).
-        let key = Self.mergeKey(name)
-        if !key.isEmpty,
-           let have = inventoryItems.first(where: { Self.mergeKey($0.name) == key && $0.level > 0.15 }) {
+        let name = draft.name
+        let key = GroceryConsolidator.normalizeKey(name)
+        if let index = groceryItems.firstIndex(where: {
+            GroceryConsolidator.normalizeKey($0.name) == key &&
+                GroceryEntryPolicy.compatibleSize($0.sizeText, draft.sizeText)
+        }) {
+            guard HouseholdSync.shared.authorize(.groceryEdit) else { return }
+            guard let quantity = GroceryEntryPolicy.adding(draft.quantity, to: groceryItems[index].quantity) else {
+                ToastCenter.shared.warning("That quantity is too large.")
+                return
+            }
+            var updated = groceryItems[index]
+            updated.quantity = quantity
+            updated.isChecked = false
+            groceryItems[index] = updated
+            return
+        }
+        guard HouseholdSync.shared.authorize(.groceryAdd) else { return }
+        let inventoryKey = Self.mergeKey(name)
+        if !inventoryKey.isEmpty,
+           let have = inventoryItems.first(where: { Self.mergeKey($0.name) == inventoryKey && $0.level > 0.15 }) {
             let count = have.quantity
             ToastCenter.shared.success(count > 1
                 ? "Heads up — you already have \(count) \(have.name.displayNormalized) in stock"
                 : "Heads up — \(have.name.displayNormalized) is already in stock")
         }
         AppAnalytics.shared.log(.groceryItemAdded)
-        groceryItems.append(LocalGroceryItem(name: name, isChecked: false))
+        groceryItems.append(LocalGroceryItem(quantity: draft.quantity, name: name,
+            isChecked: false, sizeText: draft.sizeText))
     }
     func renameInventoryItem(id: UUID, name: String) {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
@@ -1166,7 +1179,13 @@ class GuestDataStore {
                 if let date = estimate.date,
                    let currentIndex = self.inventoryIndex(of: newID),
                    self.inventoryItems[currentIndex].expirationDate == nil {
-                    self.inventoryItems[currentIndex].expirationDate = date
+                    var estimated = self.inventoryItems[currentIndex]
+                    estimated.expirationDate = date
+                    var provenance = estimated.fieldProvenance ?? [:]
+                    provenance["expiry"] = FieldProvenance(sourceID: "shelf-life-estimate",
+                        sourceName: "Shelf-life estimate", badge: .estimated)
+                    estimated.fieldProvenance = provenance
+                    self.inventoryItems[currentIndex] = estimated
                 }
             }
         } else if let exp = stamped.expirationDate {
@@ -1234,7 +1253,10 @@ class GuestDataStore {
     nonisolated static func mergingInventoryRows(_ existing: LocalInventoryItem,
                                                   _ incoming: LocalInventoryItem) -> LocalInventoryItem {
         var merged = existing
-        merged.quantity = max(1, existing.quantity) + max(1, incoming.quantity)
+        let existingCount = existing.level > 0 ? max(0, existing.quantity) : 0
+        let incomingCount = incoming.level > 0 ? max(0, incoming.quantity) : 0
+        let (combined, overflow) = existingCount.addingReportingOverflow(incomingCount)
+        merged.quantity = overflow ? Int.max : combined
         merged.level = max(existing.level, incoming.level)
         merged.lastConfirmedAt = max(existing.lastConfirmedAt ?? .distantPast,
                                      incoming.lastConfirmedAt ?? .distantPast)
@@ -1258,11 +1280,19 @@ class GuestDataStore {
         if let incomingProvenance = incoming.fieldProvenance {
             var provenance = merged.fieldProvenance ?? [:]
             for (field, candidate) in incomingProvenance {
+                if field == "expiry" { continue } // expiry provenance follows the chosen date below
                 if let current = provenance[field],
                    current.badge.confidence > candidate.badge.confidence,
                    current.observedAt >= candidate.observedAt { continue }
                 provenance[field] = candidate
             }
+            merged.fieldProvenance = provenance
+        }
+        // Date and provenance must have the same winner; legacy unknown dates stay unknown.
+        if let incomingDate = incoming.expirationDate,
+           incomingDate > (existing.expirationDate ?? .distantPast) {
+            var provenance = merged.fieldProvenance ?? [:]
+            provenance["expiry"] = incoming.fieldProvenance?["expiry"]
             merged.fieldProvenance = provenance
         }
         merged.updatedAt = max(existing.updatedAt, incoming.updatedAt)
@@ -1283,6 +1313,127 @@ class GuestDataStore {
         }
         return result
     }
+    struct InventoryConsumptionUndo {
+        let before: LocalInventoryItem
+        let after: LocalInventoryItem
+        let consumptionID: UUID?
+        let openedBefore: Date?
+        let openedAfter: Date?
+        let groceryBefore: [LocalGroceryItem]
+        let groceryAfter: [LocalGroceryItem]
+    }
+
+    /// Read the latest row at action time, rather than consuming an outdated row snapshot.
+    func consumeInventory(id: UUID, finishAll: Bool) -> InventoryConsumptionUndo? {
+        guard HouseholdSync.shared.authorize(.inventoryEdit), let index = inventoryIndex(of: id) else { return nil }
+        let before = inventoryItems[index]
+        guard let result = InventoryFormPolicy.consumption(quantity: before.quantity,
+                level: before.level, finishAll: finishAll) else { return nil }
+        // Depletion and low-stock automation can add a recommendation; preflight both domains.
+        if (result.level == 0 || result.quantity < (before.parQuantity ?? 0)),
+           !GroceryDedup.isDuplicate(before.name, in: groceryItems.map(\.name)),
+           !HouseholdSync.shared.authorize(.groceryAdd) {
+            ToastCenter.shared.warning("You can edit stock, but adding its shopping reminder needs household permission.")
+            return nil
+        }
+        let groceryBefore = groceryItems
+        let openedBefore = InventoryOpenedHistory.shared.openedDate(for: id)
+        let previousRecords = Set(consumptionLog.map(\.id))
+        var changed = before
+        changed.quantity = result.quantity
+        changed.level = result.level
+        changed.quantityUsed = nil
+        changed.lastConfirmedAt = Date()
+        inventoryItems[index] = changed
+        guard let applied = inventoryIndex(of: id),
+              inventoryItems[applied].quantity == changed.quantity,
+              inventoryItems[applied].level == changed.level,
+              inventoryItems[applied].lastConfirmedAt == changed.lastConfirmedAt else { return nil }
+        if result.level == 0 {
+            handleDepleted(inventoryItems[index])
+            if let openedBefore { InventoryOpenedHistory.shared.undoOpened(id: id, expected: openedBefore) }
+        }
+        guard let current = inventoryIndex(of: id) else { return nil }
+        return InventoryConsumptionUndo(before: before, after: inventoryItems[current],
+            consumptionID: consumptionLog.last(where: { !previousRecords.contains($0.id) })?.id,
+            openedBefore: openedBefore, openedAfter: InventoryOpenedHistory.shared.openedDate(for: id),
+            groceryBefore: groceryBefore, groceryAfter: groceryItems)
+    }
+
+    @discardableResult
+    func undoInventoryConsumption(_ undo: InventoryConsumptionUndo) -> Bool {
+        guard HouseholdSync.shared.authorize(.inventoryEdit), let index = inventoryIndex(of: undo.after.id),
+              InventoryFormPolicy.permitsUndo(live: inventoryItems[index], expected: undo.after),
+              InventoryFormPolicy.permitsUndo(live: groceryItems, expected: undo.groceryAfter),
+              InventoryOpenedHistory.shared.openedDate(for: undo.after.id) == undo.openedAfter else { return false }
+        let beforeIDs = Set(undo.groceryBefore.map(\.id))
+        let afterIDs = Set(undo.groceryAfter.map(\.id))
+        if !afterIDs.subtracting(beforeIDs).isEmpty,
+           !HouseholdSync.shared.authorize(.groceryRemove) { return false }
+        if !beforeIDs.subtracting(afterIDs).isEmpty,
+           !HouseholdSync.shared.authorize(.groceryAdd) { return false }
+        if undo.groceryBefore.contains(where: { previous in
+            undo.groceryAfter.contains(where: { $0.id == previous.id && $0 != previous })
+        }), !HouseholdSync.shared.authorize(.groceryEdit) { return false }
+        inventoryItems[index] = undo.before
+        guard let applied = inventoryIndex(of: undo.before.id),
+              inventoryItems[applied].quantity == undo.before.quantity,
+              inventoryItems[applied].level == undo.before.level else { return false }
+        if let id = undo.consumptionID { consumptionLog.removeAll { $0.id == id } }
+        if groceryItems != undo.groceryBefore { groceryItems = undo.groceryBefore }
+        if let date = undo.openedBefore, undo.openedAfter == nil {
+            InventoryOpenedHistory.shared.markOpened(id: undo.before.id, at: date,
+                activeIDs: Set(inventoryItems.map(\.id)))
+        }
+        return true
+    }
+
+    struct InventoryMoveUndo {
+        let source: LocalInventoryItem
+        let groceryBefore: [LocalGroceryItem]
+        let groceryAfter: [LocalGroceryItem]
+        let tombstoneRevision: UInt64
+    }
+
+    /// One actor-bound transaction: verify the displayed source and destination before removing stock.
+    func moveInventoryToGrocery(expected: LocalInventoryItem) -> InventoryMoveUndo? {
+        guard let index = inventoryIndex(of: expected.id), inventoryItems[index] == expected else {
+            ToastCenter.shared.warning("This item changed. Open it again before moving it.")
+            return nil
+        }
+        guard canDeleteInventory, HouseholdSync.shared.authorize(.inventoryRemove) else {
+            ToastCenter.shared.warning("You don't have permission to remove this household item.")
+            return nil
+        }
+        let groceryBefore = groceryItems
+        let exists = GroceryDedup.isDuplicate(expected.name, in: groceryItems.map(\.name))
+        if !exists, !HouseholdSync.shared.authorize(.groceryAdd) {
+            ToastCenter.shared.warning("Moving this item needs permission to add to the shopping list.")
+            return nil
+        }
+        if !exists { addToGroceryIfMissing(expected.name, recommended: true) }
+        guard GroceryDedup.isDuplicate(expected.name, in: groceryItems.map(\.name)) else { return nil }
+        inventoryItems.removeAll { $0.id == expected.id }
+        guard inventoryIndex(of: expected.id) == nil else { return nil }
+        return InventoryMoveUndo(source: expected, groceryBefore: groceryBefore,
+            groceryAfter: groceryItems, tombstoneRevision: householdTombstoneRevision)
+    }
+
+    @discardableResult
+    func undoInventoryMove(_ undo: InventoryMoveUndo) -> Bool {
+        guard inventoryIndex(of: undo.source.id) == nil,
+              householdTombstoneRevision == undo.tombstoneRevision,
+              groceryItems == undo.groceryAfter,
+              HouseholdSync.shared.authorize(.inventoryAdd) else { return false }
+        let previousIDs = Set(undo.groceryBefore.map(\.id))
+        if undo.groceryAfter.contains(where: { !previousIDs.contains($0.id) }),
+           !HouseholdSync.shared.authorize(.groceryRemove) { return false }
+        inventoryItems.append(undo.source)
+        guard inventoryIndex(of: undo.source.id) != nil else { return false }
+        if groceryItems != undo.groceryBefore { groceryItems = undo.groceryBefore }
+        return true
+    }
+
     func updateInventoryLevel(id: UUID, level: Double) {
         if let i = inventoryIndex(of: id) {   // #5 — O(1) lookup instead of firstIndex scan
             let was = inventoryItems[i].level
