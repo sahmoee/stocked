@@ -527,9 +527,15 @@ struct MainTabView: View {
             .ignoresSafeArea(edges: .bottom)
             // Navigation handled by navigate(to:) — no onChange needed
             .onAppear {
+                // Paint only the app's own main window. iOS adds pass-through windows above
+                // it once a keyboard or system UI has appeared (text effects, keyboard, alert
+                // hosts). Painting those opaque covered the whole app with the theme color after
+                // onboarding — Home was live underneath but invisible until a relaunch, when
+                // those windows did not exist yet.
                 let uiColor = UIColor(session.themeBgColor)
                 UIApplication.shared.connectedScenes
                     .compactMap { $0 as? UIWindowScene }.flatMap { $0.windows }
+                    .filter { $0.windowLevel == .normal }
                     .forEach { $0.backgroundColor = uiColor }
                 // The old full-screen welcome carousel was removed. New users are now introduced
                 // by the per-page coachmark tour (see Coachmark.swift), which highlights features

@@ -69,13 +69,18 @@ enum NotificationPermissionCoordinator {
         }
     }
 
+    /// Ready only with an active key window AND nothing presented over it. Requesting the
+    /// system dialog while a SwiftUI alert (e.g. the post-sign-in "Restore your Stocked data?"
+    /// prompt) or sheet is up made the two presentations collide; the onboarding hand-off to
+    /// Home could then render blank until the app was relaunched.
     private static var canPresentSystemPrompt: Bool {
         guard UIApplication.shared.applicationState == .active else { return false }
-        return UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .filter { $0.activationState == .foregroundActive }
+        guard let key = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .filter({ $0.activationState == .foregroundActive })
             .flatMap(\.windows)
-            .contains(where: \.isKeyWindow)
+            .first(where: \.isKeyWindow) else { return false }
+        return key.rootViewController?.presentedViewController == nil
     }
 
     /// Runs body only when notifications are already authorized (or provisional). It never
