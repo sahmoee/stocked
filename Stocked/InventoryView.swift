@@ -1225,12 +1225,11 @@ struct InventoryItemRow: View {
     }
 
     private func markOpened() {
-        let history = InventoryOpenedHistory.shared
-        let date = Date()
-        guard history.markOpened(id: item.id, at: date,
-            activeIDs: Set(session.guestStore.inventoryItems.filter { $0.quantity > 0 && $0.level > 0 }.map(\.id))) else { return }
-        ToastCenter.shared.undo("Marked opened on this device") {
-            history.undoOpened(id: item.id, expected: date)
+        // Opening also starts the item's "once opened" clock, which can bring its expiry forward.
+        let store = session.guestStore
+        guard let change = store.applyOpenedShelfLife(id: item.id) else { return }
+        ToastCenter.shared.undo(change.message) {
+            store.undoOpenedShelfLife(change)
         }
     }
 

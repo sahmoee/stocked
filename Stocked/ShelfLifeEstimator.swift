@@ -41,8 +41,22 @@ nonisolated enum ShelfLifeEstimator {
             zoneFallback(zone).map { ShelfLifeEvidence(days: $0, confidence: 0.48, source: "Storage-zone estimate") }
         ].compactMap { $0 }
 
-        guard var best = candidates.max(by: { $0.confidence < $1.confidence }) else { return (nil, nil) }
-        if opened { best = ShelfLifeEvidence(days: max(1, Int(Double(best.days) * 0.65)), confidence: best.confidence, source: best.source + " (opened)") }
+        let sealed = candidates.max(by: { $0.confidence < $1.confidence })
+        let best: ShelfLifeEvidence
+        // A known "once opened" clock beats scaling the sealed one: a tin keeps two years
+        // sealed and five days open, which no multiplier gets right. It also covers pantry
+        // tins that have no sealed estimate at all.
+        if opened, zone != .freezer, let facts = PackKnowledge.facts(for: name) {
+            best = ShelfLifeEvidence(days: min(sealed?.days ?? facts.openedDays, facts.openedDays),
+                                     confidence: max(sealed?.confidence ?? 0, 0.8),
+                                     source: "Opened shelf-life table")
+        } else if let sealed {
+            best = opened
+                ? ShelfLifeEvidence(days: max(1, Int(Double(sealed.days) * 0.65)), confidence: sealed.confidence, source: sealed.source + " (opened)")
+                : sealed
+        } else {
+            return (nil, nil)
+        }
         return (Calendar.current.date(byAdding: .day, value: best.days, to: date), best)
     }
 

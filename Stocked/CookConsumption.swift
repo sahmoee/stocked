@@ -47,7 +47,8 @@ enum CookConsumption {
         var claimed = Set<UUID>()
 
         for line in meal.ingredients {
-            let name = RecipeIngredients.parse(line).name
+            let parsed = RecipeIngredients.parse(line)
+            let name = parsed.name
             let needle = name.isEmpty ? line : name
             guard !needle.trimmingCharacters(in: .whitespaces).isEmpty else { continue }
 
@@ -60,7 +61,8 @@ enum CookConsumption {
             }) else { continue }
 
             claimed.insert(item.id)
-            let newLevel = max(0, item.level - portion)
+            let used = packFractionUsed(parsed, item: item) ?? portion
+            let newLevel = max(0, item.level - used)
 
             out.append(ProposedChange(
                 itemID: item.id,
@@ -69,6 +71,18 @@ enum CookConsumption {
                 reason: newLevel <= 0.01 ? "Used up cooking \(meal.title)" : "Used cooking \(meal.title)"))
         }
         return out
+    }
+
+    /// How much of the container a recipe line really uses, when the amount and the pack size
+    /// can be compared. The item's own size wins ("24 oz jar" on the row); the pack table is the
+    /// fallback. Nil keeps the conservative per-serving estimate.
+    static func packFractionUsed(_ parsed: StockedParsedIngredient, item: LocalInventoryItem) -> Double? {
+        if let fraction = PackKnowledge.fractionUsed(amount: parsed.amount, unit: parsed.unit,
+                                                     packSize: item.sizeAmount, packUnit: item.sizeUnit) {
+            return fraction
+        }
+        guard let facts = PackKnowledge.facts(for: item.name) else { return nil }
+        return PackKnowledge.fractionUsed(amount: parsed.amount, unit: parsed.unit, of: facts)
     }
 
     /// True when there's anything worth asking the user about.
@@ -181,11 +195,20 @@ struct CookCompletionSheet: View {
             LeftoversStore.shared.add(title: meal.title, portions: leftoverPortions, storage: "Fridge")
         }
 
+        // A pack that's only partly used is now open: start its "once opened" clock so the
+        // half tin of tomatoes shows up in expiring-soon instead of keeping its sealed date.
+        let store = session.guestStore
+        let opened: [OpenedShelfLifeChange] = applied > 0 ? changes.compactMap { change in
+            guard case .setLevel = change.action, let id = change.itemID else { return nil }
+            return store.applyOpenedShelfLife(id: id)
+        } : []
+
         // Deduction is estimated, so it always gets an undo — the amounts are a guess and the
         // user should be able to take it back without hunting through Inventory.
         if applied > 0 {
-            let store = session.guestStore
-            ToastCenter.shared.undo("Pantry updated for \(meal.title)") {
+            let freezeHint = opened.first(where: \.suggestsFreezing).map { " · \($0.message)" } ?? ""
+            ToastCenter.shared.undo("Pantry updated for \(meal.title)\(freezeHint)") {
+                opened.forEach(store.undoOpenedShelfLife)
                 for entry in snapshot {
                     store.updateInventoryLevel(id: entry.id, level: entry.level)
                 }
