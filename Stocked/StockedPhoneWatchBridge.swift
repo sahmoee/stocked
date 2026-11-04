@@ -62,7 +62,7 @@ import Observation
         if let request = packet.request {
             replyNonce = request.nonce
             if let section = request.handoff, ["home", "grocery", "inventory", "recipes", "cook"].contains(section) {
-                UserDefaults.standard.set(section, forKey: "stockedWatchHandoff-v1")
+                UserDefaults.standard.set(section, forKey: DBKey.watchHandoff.rawValue)
             }
             if let section = request.section, ["grocery", "inventory", "recipes", "meals"].contains(section) {
                 pages[section] = (KitchenWatch.text(request.query ?? "", limit: 80), max(0, request.offset ?? 0))
@@ -233,8 +233,8 @@ import Observation
                      steps: tooLarge ? [] : steps, incomplete: tooLarge, source: KitchenWatch.text(source))
     }
     func consumeHandoff() {
-        guard let section = UserDefaults.standard.string(forKey: "stockedWatchHandoff-v1") else { return }
-        UserDefaults.standard.removeObject(forKey: "stockedWatchHandoff-v1")
+        guard let section = UserDefaults.standard.string(forKey: DBKey.watchHandoff.rawValue) else { return }
+        UserDefaults.standard.removeObject(forKey: DBKey.watchHandoff.rawValue)
         let tab: StockedTab = switch section {
         case "grocery": .grocery
         case "inventory": .inventory

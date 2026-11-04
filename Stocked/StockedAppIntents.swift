@@ -20,7 +20,7 @@ nonisolated struct OpenGroceryListIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         // Flag so the app can route to the Grocery tab on next foreground.
-        UserDefaults.standard.set(true, forKey: "pendingOpenGrocery")
+        UserDefaults.standard.set(true, forKey: DBKey.pendingOpenGrocery.rawValue)
         return .result()
     }
 }
@@ -35,7 +35,7 @@ nonisolated struct StartCookingIntent: AppIntent {
 
     func perform() async throws -> some IntentResult {
         // Flag the launch intent so the app can route to Cook Now on next foreground.
-        UserDefaults.standard.set(true, forKey: "pendingStartCooking")
+        UserDefaults.standard.set(true, forKey: DBKey.pendingStartCooking.rawValue)
         return .result()
     }
 }

@@ -54,7 +54,7 @@ enum SharedRecipeImporter {
             Log.app.error("ShareImport: UserDefaults(suiteName:) is nil — App Group '\(appGroupID, privacy: .public)' not enabled on the MAIN APP target?")
             return .noPayload
         }
-        guard let payload = defaults.dictionary(forKey: "pendingSharedRecipe") else {
+        guard let payload = defaults.dictionary(forKey: DBKey.pendingSharedRecipe.rawValue) else {
             Log.app.error("ShareImport: no 'pendingSharedRecipe' key in the App Group — the extension didn't write it, or the group IDs differ between app and extension.")
             return .noPayload
         }
@@ -66,9 +66,9 @@ enum SharedRecipeImporter {
         func finished(_ outcome: Outcome) -> Outcome {
             guard !Task.isCancelled else { return .nothingExtracted }
             if case .success = outcome,
-               let current = defaults.dictionary(forKey: "pendingSharedRecipe"),
+               let current = defaults.dictionary(forKey: DBKey.pendingSharedRecipe.rawValue),
                SharedRecipePayloadPolicy.shouldAcknowledge(captured: payload, current: current) {
-                defaults.removeObject(forKey: "pendingSharedRecipe")
+                defaults.removeObject(forKey: DBKey.pendingSharedRecipe.rawValue)
                 defaults.synchronize()
                 if payload["imagePath"] != nil,
                    let imageURL = SharedRecipePayloadPolicy.sharedImageURL(

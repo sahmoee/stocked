@@ -109,8 +109,8 @@ struct PreferencesSectionView: View {
                     ))
 
                     toggleRow(dark: dark, icon: "person.3.fill", title: "Improve Stocked for Everyone", detail: "Share anonymous item facts only.", isOn: Binding(
-                        get: { UserDefaults.standard.bool(forKey: "crowdShareEnabled") },
-                        set: { UserDefaults.standard.set($0, forKey: "crowdShareEnabled") }
+                        get: { UserDefaults.standard.bool(forKey: DBKey.crowdShareEnabled.rawValue) },
+                        set: { UserDefaults.standard.set($0, forKey: DBKey.crowdShareEnabled.rawValue) }
                     ))
 
                     actionRow(dark: dark, icon: "globe", title: "Recipe Sources", detail: "Add websites or manage sources", action: onRecipeSources)

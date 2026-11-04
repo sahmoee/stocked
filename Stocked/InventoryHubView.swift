@@ -211,7 +211,7 @@ struct InventoryHubView: View {
         .confirmationDialog("Sort by", isPresented: $showSortDialog, titleVisibility: .visible) {
             ForEach(["Use first", "Name", "Quantity", "Low first", "Recent"], id: \.self) { mode in
                 Button(mode) {
-                    UserDefaults.standard.set(mode, forKey: "stocked.invSort")
+                    UserDefaults.standard.set(mode, forKey: DBKey.invSort.rawValue)
                     goAllInventory = true
                 }
             }

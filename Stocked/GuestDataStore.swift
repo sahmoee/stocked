@@ -527,7 +527,7 @@ class GuestDataStore {
         }
     }   // close-the-loop #1
     var displayName: String = "" { didSet { ud.set(displayName, forKey: "guestName") } }
-    var groceryDayOfWeek: Int = 6 { didSet { ud.set(groceryDayOfWeek, forKey: "groceryDay") } }
+    var groceryDayOfWeek: Int = 6 { didSet { ud.set(groceryDayOfWeek, forKey: DBKey.groceryDay.rawValue) } }
     var quizCompleted: Bool = false { didSet { ud.set(quizCompleted, forKey: "quizCompleted") } }
     // Kitchen Goals — the user's chosen staples drive a meaningful stock % (see stockPercent).
     var stockGoalsConfigured: Bool = false { didSet { ud.set(stockGoalsConfigured, forKey: "stockGoalsConfigured") } }
@@ -604,7 +604,7 @@ class GuestDataStore {
         displayName           = ud.string(forKey: "guestName") ?? ""
         quizCompleted         = ud.bool(forKey: "quizCompleted")
         cookingProfile        = (ud.data(forKey: DBKey.cookingProfile.rawValue).flatMap { try? JSONDecoder().decode(UserCookingProfile.self, from: $0) }) ?? UserCookingProfile()
-        groceryDayOfWeek      = ud.integer(forKey: "groceryDay") == 0 ? 6 : ud.integer(forKey: "groceryDay")
+        groceryDayOfWeek      = ud.integer(forKey: DBKey.groceryDay.rawValue) == 0 ? 6 : ud.integer(forKey: DBKey.groceryDay.rawValue)
         stockGoalsConfigured  = ud.bool(forKey: "stockGoalsConfigured")
         Task { [weak self] in
             let snapshot = await Task.detached(priority: .userInitiated) {
@@ -2149,7 +2149,7 @@ class GuestDataStore {
     func moveCheckedGroceryToInventory() -> Int {
         let checked = groceryItems.filter { $0.isChecked }
         guard !checked.isEmpty else { return 0 }
-        let who = UserDefaults.standard.string(forKey: "householdMemberName_v1") ?? ""
+        let who = UserDefaults.standard.string(forKey: DBKey.householdMemberName.rawValue) ?? ""
         for g in checked {
             var inv = LocalInventoryItem(name: g.name, level: 1.0, zone: ReceiptDatabase.shared.guessZone(for: g.name),
                                          quantity: max(1, g.quantity))

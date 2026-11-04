@@ -1378,7 +1378,7 @@ class KitchenTransferManager {
                 isBacking = false
                 statusMessage = "Backed up to iCloud ✓"
                 iCloudStatus  = "Backed up \(DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .short))"
-                UserDefaults.standard.set(Date(), forKey: "lastICloudBackup")
+                UserDefaults.standard.set(Date(), forKey: DBKey.lastICloudBackup.rawValue)
                 // This device clearly holds current data — suppress the one-time new-device
                 // auto-restore here so it won't re-pull what we just sent.
                 UserDefaults.standard.set(true, forKey: "didAutoRestoreFromiCloud_v1")
@@ -1621,7 +1621,7 @@ class KitchenTransferManager {
             || !store.groceryItems.isEmpty
             || !store.pastMeals.isEmpty
             || !store.userRecipes.isEmpty
-            || UserDefaults.standard.bool(forKey: "wasGuest")
+            || UserDefaults.standard.bool(forKey: DBKey.wasGuest.rawValue)
             || !session.appleUserID.isEmpty
 
         // This is a new-device recovery feature, not an app-update migration. Earlier builds
@@ -1691,7 +1691,7 @@ class KitchenTransferManager {
     }
 
     var lastBackupDate: String {
-        guard let date = UserDefaults.standard.object(forKey: "lastICloudBackup") as? Date else {
+        guard let date = UserDefaults.standard.object(forKey: DBKey.lastICloudBackup.rawValue) as? Date else {
             return "Never"
         }
         return DateFormatter.localizedString(from: date, dateStyle: .medium, timeStyle: .short)

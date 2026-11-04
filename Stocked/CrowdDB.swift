@@ -32,7 +32,7 @@ nonisolated enum CrowdDB {
     /// True only if the user explicitly turned contribution ON. Default OFF (opt-in): sharing
     /// needs affirmative consent even though the facts are anonymized.
     static var isEnabled: Bool {
-        UserDefaults.standard.object(forKey: "crowdShareEnabled") as? Bool ?? false
+        UserDefaults.standard.object(forKey: DBKey.crowdShareEnabled.rawValue) as? Bool ?? false
     }
 
     private static let session: URLSession = {

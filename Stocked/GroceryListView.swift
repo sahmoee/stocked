@@ -381,7 +381,7 @@ struct GroceryListView: View {
         let inventoryBefore = store.inventoryItems
         let groceriesBefore = store.groceryItems
         let tripID = PurchaseImportLog.shared.currentTripID()
-        let who = UserDefaults.standard.string(forKey: "householdMemberName_v1") ?? ""
+        let who = UserDefaults.standard.string(forKey: DBKey.householdMemberName.rawValue) ?? ""
         var moved = 0
         var importRecords: [PurchaseImportRecord] = []
         var additions: [ProposedChange] = []

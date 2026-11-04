@@ -316,11 +316,11 @@ struct InventoryView: View {
         }
         .onChange(of: invSort) { _, newValue in
             // #246 — keep the hub's sort dialog and this list in agreement.
-            UserDefaults.standard.set(newValue.rawValue, forKey: "stocked.invSort")
+            UserDefaults.standard.set(newValue.rawValue, forKey: DBKey.invSort.rawValue)
         }
         .onAppear {
             // #246 — pick up a sort chosen on the hub before this list was pushed.
-            if let saved = UserDefaults.standard.string(forKey: "stocked.invSort"),
+            if let saved = UserDefaults.standard.string(forKey: DBKey.invSort.rawValue),
                let mode = InvSort(rawValue: saved) {
                 invSort = mode
             }

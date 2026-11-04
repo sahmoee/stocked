@@ -135,15 +135,15 @@ struct StockedApp: App {
                 // #drift — apply any "I used X" items queued by the Siri intent.
                 session.guestStore.drainPendingUsedItems()
                 let ud = UserDefaults.standard
-                if ud.bool(forKey: "pendingOpenGrocery") {
-                    ud.set(false, forKey: "pendingOpenGrocery")
+                if ud.bool(forKey: DBKey.pendingOpenGrocery.rawValue) {
+                    ud.set(false, forKey: DBKey.pendingOpenGrocery.rawValue)
                     Task { @MainActor in
                         try? await Task.sleep(nanoseconds: 400_000_000)
                         NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.grocery)
                     }
                 }
-                if ud.bool(forKey: "pendingStartCooking") {
-                    ud.set(false, forKey: "pendingStartCooking")
+                if ud.bool(forKey: DBKey.pendingStartCooking.rawValue) {
+                    ud.set(false, forKey: DBKey.pendingStartCooking.rawValue)
                     Task { @MainActor in
                         try? await Task.sleep(nanoseconds: 400_000_000)
                         NotificationCenter.default.post(name: .stockedSwitchTab, object: StockedTab.recipes)

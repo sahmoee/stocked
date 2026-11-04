@@ -148,7 +148,7 @@ class AppSession {
     /// #20 — a human-readable name for who added an item in a shared household.
     /// Uses the saved Apple display name if present, else the device name.
     var householdMemberName: String {
-        let saved = UserDefaults.standard.string(forKey: "householdMemberName_v1") ?? ""
+        let saved = UserDefaults.standard.string(forKey: DBKey.householdMemberName.rawValue) ?? ""
         if !saved.isEmpty { return saved }
         return UIDevice.current.name
     }
@@ -204,9 +204,9 @@ class AppSession {
     var activeCook: ActiveCookSession? = AppSession.loadActiveCook() {
         didSet {
             if let cook = activeCook, let data = try? JSONEncoder().encode(cook) {
-                UserDefaults.standard.set(data, forKey: "activeCookSession")
+                UserDefaults.standard.set(data, forKey: DBKey.activeCookSession.rawValue)
             } else {
-                UserDefaults.standard.removeObject(forKey: "activeCookSession")
+                UserDefaults.standard.removeObject(forKey: DBKey.activeCookSession.rawValue)
             }
         }
     }
@@ -221,7 +221,7 @@ class AppSession {
     }
 
     nonisolated private static func loadActiveCook() -> ActiveCookSession? {
-        guard let data = UserDefaults.standard.data(forKey: "activeCookSession"),
+        guard let data = UserDefaults.standard.data(forKey: DBKey.activeCookSession.rawValue),
               let cook = try? JSONDecoder().decode(ActiveCookSession.self, from: data) else { return nil }
         // Stale after 2h — matches the cook flow's own progress TTL.
         return Date().timeIntervalSince(cook.startedAt) < 7200 ? cook : nil
@@ -266,7 +266,7 @@ class AppSession {
     var hasExistingSession: Bool {
         let hasName  = !guestStore.displayName.isEmpty
         let hasItems = !guestStore.inventoryItems.isEmpty || !guestStore.groceryItems.isEmpty
-        return UserDefaults.standard.bool(forKey: "wasGuest") && (hasName || hasItems)
+        return UserDefaults.standard.bool(forKey: DBKey.wasGuest.rawValue) && (hasName || hasItems)
     }
     var isNamedUser: Bool {
         !displayName.trimmingCharacters(in: .whitespaces).isEmpty && displayName.lowercased() != "guest"
@@ -440,7 +440,7 @@ class AppSession {
             ?? "Kroger"
         self.appleUserID    = ud.string(forKey: DBKey.appleUserID.rawValue) ?? ""
 
-        if ud.bool(forKey: "wasGuest") {
+        if ud.bool(forKey: DBKey.wasGuest.rawValue) {
             accountType = .guest
             displayName = guestStore.displayName
             if hasExistingSession { isLoggedIn = true }
@@ -481,7 +481,7 @@ class AppSession {
         let alreadyRegistered = (accountType == .registered)
         if !alreadyRegistered {
             accountType = .guest
-            UserDefaults.standard.set(true, forKey: "wasGuest")
+            UserDefaults.standard.set(true, forKey: DBKey.wasGuest.rawValue)
         }
         if !alreadyRegistered || !n.isEmpty {
             displayName = n.isEmpty ? (alreadyRegistered ? displayName : "") : n
@@ -527,7 +527,7 @@ class AppSession {
 
         // No longer a guest session. Clearing this marker is what stops the app from
         // resolving back to guest on the next cold launch (init reads wasGuest).
-        UserDefaults.standard.set(false, forKey: "wasGuest")
+        UserDefaults.standard.set(false, forKey: DBKey.wasGuest.rawValue)
 
         // FR-03 FIX: do NOT auto-complete onboarding on Apple sign-in. The user wants to SEE the
         // onboarding quiz when they sign in (with the option to restore previous results instead).

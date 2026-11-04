@@ -330,11 +330,11 @@ final class PrivacyControlCenter {
     var allowOnDeviceAnalytics: Bool {
         didSet { AppAnalytics.shared.isEnabled = allowOnDeviceAnalytics }
     }
-    var allowPersonalization: Bool { didSet { UserDefaults.standard.set(allowPersonalization, forKey: "privacy.personalization") } }
+    var allowPersonalization: Bool { didSet { UserDefaults.standard.set(allowPersonalization, forKey: DBKey.privacyPersonalization.rawValue) } }
     var allowHouseholdActivity: Bool { didSet { UserDefaults.standard.set(allowHouseholdActivity, forKey: "privacy.householdActivity") } }
     private init() {
         allowOnDeviceAnalytics = AppAnalytics.shared.isEnabled
-        allowPersonalization = UserDefaults.standard.object(forKey: "privacy.personalization") as? Bool ?? true
+        allowPersonalization = UserDefaults.standard.object(forKey: DBKey.privacyPersonalization.rawValue) as? Bool ?? true
         allowHouseholdActivity = UserDefaults.standard.object(forKey: "privacy.householdActivity") as? Bool ?? true
     }
 }

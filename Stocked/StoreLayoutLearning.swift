@@ -235,7 +235,7 @@ final class StoreLayoutStore {
         // Launch readiness 1.4 — stamp for household sync (layouts are shared: same store,
         // same aisles, everyone's trips make everyone's list smarter).
         l.updatedAt = Date().timeIntervalSince1970 * 1000
-        l.lastWriterID = UserDefaults.standard.string(forKey: "hh_member_id") ?? ""
+        l.lastWriterID = UserDefaults.standard.string(forKey: DBKey.householdWorkerMemberID.rawValue) ?? ""
         if let i = layouts.firstIndex(where: { $0.store.caseInsensitiveCompare(store) == .orderedSame }) {
             layouts[i] = l
         } else {

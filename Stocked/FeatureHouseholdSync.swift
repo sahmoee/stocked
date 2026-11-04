@@ -181,7 +181,7 @@ final class FeatureSync {
     nonisolated static func stamped<T: HouseholdSyncable>(_ entry: T) -> T {
         var e = entry
         e.updatedAt = Date().timeIntervalSince1970 * 1000
-        e.lastWriterID = UserDefaults.standard.string(forKey: "hh_member_id") ?? ""
+        e.lastWriterID = UserDefaults.standard.string(forKey: DBKey.householdWorkerMemberID.rawValue) ?? ""
         return e
     }
 

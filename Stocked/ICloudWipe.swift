@@ -71,7 +71,7 @@ extension KitchenTransferManager {
                 // A fresh device should be free to auto-restore again if the user re-backs-up
                 // later; clearing this flag matches the "cloud is now empty" state.
                 UserDefaults.standard.removeObject(forKey: "didAutoRestoreFromiCloud_v1")
-                UserDefaults.standard.removeObject(forKey: "lastICloudBackup")
+                UserDefaults.standard.removeObject(forKey: DBKey.lastICloudBackup.rawValue)
 
                 iCloudStatus  = "No backups"
                 statusMessage = deleted == 1

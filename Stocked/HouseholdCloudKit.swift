@@ -73,17 +73,17 @@ final class HouseholdCloudKit {
     private init() {
         // Restore the persisted household role so launch-time subscription re-registration
         // and sync know whether we're an owner or a member.
-        switch UserDefaults.standard.string(forKey: "householdRole") {
+        switch UserDefaults.standard.string(forKey: DBKey.householdCloudRole.rawValue) {
         case "owner":  state = .owner
         case "member": state = .member
         default:       state = .idle
         }
-        if let name = UserDefaults.standard.string(forKey: "householdMemberZoneName"),
-           let owner = UserDefaults.standard.string(forKey: "householdMemberZoneOwner") {
+        if let name = UserDefaults.standard.string(forKey: DBKey.householdCloudMemberZoneName.rawValue),
+           let owner = UserDefaults.standard.string(forKey: DBKey.householdCloudMemberZoneOwner.rawValue) {
             memberZoneID = CKRecordZone.ID(zoneName: name, ownerName: owner)
         }
         // Restore the previously published join code so it stays visible across launches.
-        joinCode = UserDefaults.standard.string(forKey: "householdJoinCode")
+        joinCode = UserDefaults.standard.string(forKey: DBKey.householdCloudJoinCode.rawValue)
         // The owner's zone is deterministic; restore it on launch so sync/code paths don't fail
         // just because the in-memory ownerZoneID wasn't repopulated after a relaunch.
         if state == .owner {
@@ -147,9 +147,9 @@ final class HouseholdCloudKit {
     /// Persist the role whenever it settles to owner/member/idle (not transient states).
     private func persistRole() {
         switch state {
-        case .owner:  UserDefaults.standard.set("owner",  forKey: "householdRole")
-        case .member: UserDefaults.standard.set("member", forKey: "householdRole")
-        case .idle:   UserDefaults.standard.removeObject(forKey: "householdRole")
+        case .owner:  UserDefaults.standard.set("owner",  forKey: DBKey.householdCloudRole.rawValue)
+        case .member: UserDefaults.standard.set("member", forKey: DBKey.householdCloudRole.rawValue)
+        case .idle:   UserDefaults.standard.removeObject(forKey: DBKey.householdCloudRole.rawValue)
         default:      break
         }
     }
@@ -166,10 +166,10 @@ final class HouseholdCloudKit {
         memberZoneID = nil
         syncStage = nil
         lastError = nil
-        UserDefaults.standard.removeObject(forKey: "householdMemberZoneName")
-        UserDefaults.standard.removeObject(forKey: "householdMemberZoneOwner")
-        UserDefaults.standard.removeObject(forKey: "householdRole")
-        UserDefaults.standard.removeObject(forKey: "householdJoinCode")
+        UserDefaults.standard.removeObject(forKey: DBKey.householdCloudMemberZoneName.rawValue)
+        UserDefaults.standard.removeObject(forKey: DBKey.householdCloudMemberZoneOwner.rawValue)
+        UserDefaults.standard.removeObject(forKey: DBKey.householdCloudRole.rawValue)
+        UserDefaults.standard.removeObject(forKey: DBKey.householdCloudJoinCode.rawValue)
         Log.transfer.notice("Left household (local state reset)")
     }
 
@@ -186,8 +186,8 @@ final class HouseholdCloudKit {
 
     private func rememberMemberZone(_ zone: CKRecordZone.ID) {
         memberZoneID = zone
-        UserDefaults.standard.set(zone.zoneName, forKey: "householdMemberZoneName")
-        UserDefaults.standard.set(zone.ownerName, forKey: "householdMemberZoneOwner")
+        UserDefaults.standard.set(zone.zoneName, forKey: DBKey.householdCloudMemberZoneName.rawValue)
+        UserDefaults.standard.set(zone.ownerName, forKey: DBKey.householdCloudMemberZoneOwner.rawValue)
     }
 
     /// Legacy installs may adopt a single household zone, never an arbitrary first zone.
@@ -217,13 +217,13 @@ final class HouseholdCloudKit {
             guard try await container.accountStatus() == .available, isCurrent(epoch) else { return false }
             let identity = try await container.userRecordID().recordName
             guard isCurrent(epoch) else { return false }
-            let previous = UserDefaults.standard.string(forKey: "householdCloudAccount")
+            let previous = UserDefaults.standard.string(forKey: DBKey.householdCloudAccount.rawValue)
             if let previous, previous != identity {
                 leaveHousehold()
-                UserDefaults.standard.set(identity, forKey: "householdCloudAccount")
+                UserDefaults.standard.set(identity, forKey: DBKey.householdCloudAccount.rawValue)
                 return false // An account switch requires an explicit new create/join action.
             }
-            UserDefaults.standard.set(identity, forKey: "householdCloudAccount")
+            UserDefaults.standard.set(identity, forKey: DBKey.householdCloudAccount.rawValue)
             return true
         } catch { return false }
     }
@@ -510,7 +510,7 @@ final class HouseholdCloudKit {
             _ = try await publicDB.modifyRecords(saving: [rec], deleting: [])
             guard isCurrent(epoch) else { return }
             joinCode = code
-            UserDefaults.standard.set(code, forKey: "householdJoinCode")
+            UserDefaults.standard.set(code, forKey: DBKey.householdCloudJoinCode.rawValue)
             lastError = nil
             Log.transfer.notice("Published household join code")
         } catch {
@@ -831,7 +831,7 @@ final class HouseholdCloudKit {
         // Resume from a saved change token if we have one (delta sync; nil = full fetch).
         // Owner identity is part of the checkpoint scope; legacy zone-only tokens cannot
         // be reused after an account/owner change. A fresh scoped key safely replays once.
-        guard let account = UserDefaults.standard.string(forKey: "householdCloudAccount") else { return false }
+        guard let account = UserDefaults.standard.string(forKey: DBKey.householdCloudAccount.rawValue) else { return false }
         let tokenScope = Data((account + "\u{0}" + zoneID.ownerName + "\u{0}" + zoneID.zoneName).utf8).base64EncodedString()
         let tokenKey = "householdZoneToken_v3_" + tokenScope
         var stagedToken: Data?

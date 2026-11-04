@@ -103,7 +103,7 @@ final class ShareViewController: UIViewController {
                 payload["imagePath"] = fileURL.path
             }
         }
-        defaults.set(payload, forKey: "pendingSharedRecipe")
+        defaults.set(payload, forKey: DBKey.pendingSharedRecipe.rawValue)
         defaults.synchronize()
         NSLog("StockedShareExt: wrote payload, keys=\(payload.keys.joined(separator: ","))")
 

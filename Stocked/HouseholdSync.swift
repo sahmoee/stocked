@@ -34,12 +34,12 @@ final class HouseholdSync {
         scopeEpoch == epoch && joinCode == code
     }
     private init() {
-        switch UserDefaults.standard.string(forKey: "hh_role") {
+        switch UserDefaults.standard.string(forKey: DBKey.householdWorkerRole.rawValue) {
         case "owner":  state = .owner
         case "member": state = .member
         default:       state = .idle
         }
-        joinCode = UserDefaults.standard.string(forKey: "hh_code")
+        joinCode = UserDefaults.standard.string(forKey: DBKey.householdWorkerCode.rawValue)
         restorePersistedAccess()
         loadQueue()
     }
@@ -380,8 +380,8 @@ final class HouseholdSync {
 
     /// Display name used for attribution and the member list. Set from the app.
     var myDisplayName: String {
-        get { UserDefaults.standard.string(forKey: "hh_my_name") ?? "You" }
-        set { UserDefaults.standard.set(newValue.isEmpty ? "You" : newValue, forKey: "hh_my_name") }
+        get { UserDefaults.standard.string(forKey: DBKey.householdWorkerMyName.rawValue) ?? "You" }
+        set { UserDefaults.standard.set(newValue.isEmpty ? "You" : newValue, forKey: DBKey.householdWorkerMyName.rawValue) }
     }
 
     /// Stable per-install identity. Two devices (or two guests) could share the same display
@@ -422,11 +422,11 @@ final class HouseholdSync {
     }
 
     var memberId: String {
-        if let existing = UserDefaults.standard.string(forKey: "hh_member_id"), !existing.isEmpty {
+        if let existing = UserDefaults.standard.string(forKey: DBKey.householdWorkerMemberID.rawValue), !existing.isEmpty {
             return existing
         }
         let fresh = UUID().uuidString
-        UserDefaults.standard.set(fresh, forKey: "hh_member_id")
+        UserDefaults.standard.set(fresh, forKey: DBKey.householdWorkerMemberID.rawValue)
         return fresh
     }
 
@@ -434,7 +434,7 @@ final class HouseholdSync {
     /// set name, then the device name (e.g. "Jess's iPad"), and only falls back to "Member" if
     /// somehow both are empty. This is what stops every unnamed device from showing up as "You".
     private func resolvedName() -> String {
-        let saved = (UserDefaults.standard.string(forKey: "hh_my_name") ?? "").trimmingCharacters(in: .whitespaces)
+        let saved = (UserDefaults.standard.string(forKey: DBKey.householdWorkerMyName.rawValue) ?? "").trimmingCharacters(in: .whitespaces)
         if !saved.isEmpty && saved != "You" { return saved }
         // Previously fell back to UIDevice.current.name, which returns "iPhone" on iOS 16+
         // (Apple no longer exposes the user-set device name to apps), so members showed as
@@ -523,12 +523,12 @@ final class HouseholdSync {
 
     private func persist() {
         switch state {
-        case .owner:  UserDefaults.standard.set("owner", forKey: "hh_role")
-        case .member: UserDefaults.standard.set("member", forKey: "hh_role")
-        case .idle:   UserDefaults.standard.removeObject(forKey: "hh_role")
+        case .owner:  UserDefaults.standard.set("owner", forKey: DBKey.householdWorkerRole.rawValue)
+        case .member: UserDefaults.standard.set("member", forKey: DBKey.householdWorkerRole.rawValue)
+        case .idle:   UserDefaults.standard.removeObject(forKey: DBKey.householdWorkerRole.rawValue)
         default: break
         }
-        UserDefaults.standard.set(joinCode, forKey: "hh_code")
+        UserDefaults.standard.set(joinCode, forKey: DBKey.householdWorkerCode.rawValue)
     }
 
     // MARK: - Public API (used by the household screens)
@@ -1035,8 +1035,8 @@ final class HouseholdSync {
         state = .idle
         joinCode = nil
         applyAccessSnapshot(.owner)
-        UserDefaults.standard.removeObject(forKey: "hh_role")
-        UserDefaults.standard.removeObject(forKey: "hh_code")
+        UserDefaults.standard.removeObject(forKey: DBKey.householdWorkerRole.rawValue)
+        UserDefaults.standard.removeObject(forKey: DBKey.householdWorkerCode.rawValue)
         UserDefaults.standard.removeObject(forKey: Self.accessSnapshotKey)
         // Journal deltas and server revisions belong to the departed household. The local
         // collections remain authoritative and will be shared as a fresh snapshot if rejoined.

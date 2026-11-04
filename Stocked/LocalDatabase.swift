@@ -400,6 +400,26 @@ nonisolated enum DBKey: String, CaseIterable, Sendable {
     case homeBriefCollapsed    = "stocked.homeBriefCollapsed"
 
     case priceHistory          = "price_history_v1"
+
+    // Raw-string keys moved into DBKey (exact existing strings — do NOT change them).
+    case householdCloudRole            = "householdRole"
+    case householdWorkerRole           = "hh_role"
+    case pendingSharedRecipe           = "pendingSharedRecipe"
+    case householdCloudAccount         = "householdCloudAccount"
+    case householdWorkerMemberID       = "hh_member_id"
+    case watchHandoff                  = "stockedWatchHandoff-v1"
+    case privacyPersonalization        = "privacy.personalization"
+    case pendingStartCooking           = "pendingStartCooking"
+    case pendingOpenGrocery            = "pendingOpenGrocery"
+    case householdCloudMemberZoneOwner = "householdMemberZoneOwner"
+    case householdCloudMemberZoneName  = "householdMemberZoneName"
+    case householdMemberName           = "householdMemberName_v1"
+    case householdCloudJoinCode        = "householdJoinCode"
+    case householdWorkerMyName         = "hh_my_name"
+    case householdWorkerCode           = "hh_code"
+    case groceryDay                    = "groceryDay"
+    case crowdShareEnabled             = "crowdShareEnabled"
+
 }
 
 // MARK: - AppDataCache

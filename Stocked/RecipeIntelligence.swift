@@ -191,7 +191,7 @@ final class RecipeInterest {
     /// the user's prior ranking instead of silently destroying it.
     private var personalizationAllowed: Bool {
         let defaults = UserDefaults.standard
-        return defaults.object(forKey: "privacy.personalization") as? Bool ?? true
+        return defaults.object(forKey: DBKey.privacyPersonalization.rawValue) as? Bool ?? true
     }
 
     nonisolated enum Event: String, Sendable {
