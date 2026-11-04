@@ -132,6 +132,13 @@ private func stockTint(_ pct: Int) -> Color {
 struct StockedEntry: TimelineEntry {
     let date: Date
     let snapshot: StockedWidgetSnapshot
+
+    /// Smart Stack ranking: rise when food is about to expire or a meal is planned for today,
+    /// stay out of the way otherwise.
+    var relevance: TimelineEntryRelevance? {
+        let score = Float(min(snapshot.expiringCount, 10)) * 10 + (snapshot.todayMeal == nil ? 0 : 15)
+        return score > 0 ? TimelineEntryRelevance(score: score) : nil
+    }
 }
 
 struct StockedProvider: TimelineProvider {
@@ -564,5 +571,8 @@ struct StockedWidgetBundle: WidgetBundle {
         TodayMealWidget()
         RecipeLibraryWidget()
         CookTimerLiveActivity()
+        GroceryListControl()
+        PantryControl()
+        CookControl()
     }
 }
