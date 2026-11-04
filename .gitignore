@@ -61,3 +61,6 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/
 **/__pycache__/
+
+# Generated brag reel output (videos, renders)
+brag-output*/

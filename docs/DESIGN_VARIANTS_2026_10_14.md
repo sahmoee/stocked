@@ -1,6 +1,8 @@
 <!-- PROJECT-KNOWLEDGE managed; do not edit this export -->
 > Maintained in ProjectKnowledge: `projects/stocked/documents/docs/DESIGN_VARIANTS_2026_10_14.md`. This is a generated portable read-only export. Update the central source with `project-knowledge put`; use `project-knowledge publish` to refresh exports. Relative links and code paths below refer to this original project location.
 
+> **Retired October 16, 2026 at user request.** Pantry Journal, Kitchen Standard and Evening Table are no longer options. The selector was removed; existing preferences/backups normalize to Current in both the app and widget group, preserving independent palette/dark/font preferences. The implementation notes below describe the historical rollout, not current selectable features.
+
 # Optional Stocked design variants — October 14, 2026
 
 Current is the default. New and existing users without a saved design keep the original appearance. Pastel/Tan, stored dark-mode choice and explicit font preferences remain intact; returning to Current restores them.
