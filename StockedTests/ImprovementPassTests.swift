@@ -25,9 +25,15 @@ final class ReleaseConsistencyTests: XCTestCase {
                        "BuildConfig.changeCount must equal the latest changelog version's entry count")
     }
 
-    @MainActor func testChangelogVersionsAreUnique() {
-        let versions = StockedChangelog.versions.map(\.version)
-        XCTAssertEqual(versions.count, Set(versions).count, "Duplicate changelog version strings")
+    /// Early history reused some version numbers across separate builds (4.21 is both Build 41
+    /// and Build 77), so the version string alone isn't unique; each release — version plus
+    /// build — must be, and the latest version must not appear twice.
+    @MainActor func testChangelogReleasesAreUnique() {
+        let releases = StockedChangelog.versions.map { "\($0.version)|\($0.buildDate)" }
+        XCTAssertEqual(releases.count, Set(releases).count, "Duplicate changelog release (version + build)")
+        guard let latest = StockedChangelog.versions.first(where: \.isLatest) else { return }
+        XCTAssertEqual(StockedChangelog.versions.filter { $0.version == latest.version }.count, 1,
+                       "The latest changelog version string is reused by an older entry")
     }
 }
 
