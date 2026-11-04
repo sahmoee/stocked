@@ -45,7 +45,7 @@ nonisolated struct NutritionDatabase {
         let key = name.lowercased()
             .trimmingCharacters(in: .whitespaces)
             .folding(options: .diacriticInsensitive, locale: .current)   // #6 borrowed here too
-        if let val = richDb[key]                               { return val.toFacts() }
+        if let val = richDb[key] { return val.toFacts() }
         if let match = richDb.first(where: { $0.key.contains(key) || key.contains($0.key) }) {
             return match.value.toFacts()
         }
@@ -274,7 +274,7 @@ struct RecipeNutritionSummary: View {
                 totals = await RecipeNutritionSummaryCache.shared.totals(
                     ingredients: ingredients, servings: servings)
             }
-        
+
         } else {
             Color.clear
                 .frame(height: 0)

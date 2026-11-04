@@ -212,7 +212,6 @@ struct ReservationOverrideSheet: View {
                             .buttonStyle(.plain)
                         }
                         .padding(.top, 4)
-
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 20)

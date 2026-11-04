@@ -10,7 +10,6 @@
 // same string can be written to a tag without changing the data model.
 
 import SwiftUI
-import CoreImage
 import CoreImage.CIFilterBuiltins
 import UIKit
 

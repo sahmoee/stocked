@@ -507,11 +507,11 @@ struct DailyBriefOverlay: View {
                 .foregroundStyle(Color.stockedGoldDark)
             HStack(spacing: 8) {
                 quickAction("Scan Receipt", "doc.text.viewfinder") { close(); onScanReceipt() }
-                quickAction("Scan Barcode", "barcode.viewfinder")  { close(); onScanBarcode() }
+                quickAction("Scan Barcode", "barcode.viewfinder") { close(); onScanBarcode() }
             }
             HStack(spacing: 8) {
-                quickAction("Shopping List", "cart")               { close(); onShoppingList() }
-                quickAction("Settings", "slider.horizontal.3")     { close(); onPreferences() }
+                quickAction("Shopping List", "cart") { close(); onShoppingList() }
+                quickAction("Settings", "slider.horizontal.3") { close(); onPreferences() }
             }
         }
     }
@@ -578,7 +578,7 @@ struct ExpiringItemsView: View {
 
     var title: String { mode == .expiring ? "Expiring Soon" : "Low Stock" }
     var icon:  String { mode == .expiring ? "clock.badge.exclamationmark" : "chart.bar.fill" }
-    var tint:  Color  { mode == .expiring ? .orange : Color.stockedGold }
+    var tint:  Color { mode == .expiring ? .orange : Color.stockedGold }
 
     @State private var addedToList: Set<UUID> = []
     @State private var selectedItem: LocalInventoryItem?
