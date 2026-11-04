@@ -33,7 +33,7 @@ struct QuantityInputView: View {
                     .focused($focused)
                     .onSubmit { apply(raw) }
                 if !raw.isEmpty {
-                    Button { apply(raw) } label: { Image(systemName: "arrow.right.circle.fill") }
+                    Button { apply(raw) } label: { Image(systemName: "arrow.right.circle.fill").accessibilityLabel("Apply quantity") }
                         .buttonStyle(.plain).foregroundStyle(.tint)
                         .stockedIconButton("Apply quantity")
                 }

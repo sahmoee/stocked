@@ -254,7 +254,7 @@ struct CostSplittingView: View {
         .stockedScreen()
         .navigationTitle("Shared Costs")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus") } } }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus").accessibilityLabel("Add") } } }
         .sheet(isPresented: $showAdd) { AddSharedExpenseSheet() }
         .onAppear { store.seedPeopleIfEmpty(from: family.profiles.map(\.name)) }
     }

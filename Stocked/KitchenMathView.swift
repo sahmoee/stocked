@@ -125,7 +125,7 @@ struct KitchenMathCalculatorView: View {
                 Menu {
                     Button("Clear all inputs", role: .destructive) { showReset = true }
                         .disabled(!hasInput)
-                } label: { Image(systemName: "ellipsis.circle") }
+                } label: { Image(systemName: "ellipsis.circle").accessibilityLabel("More options") }
                     .accessibilityLabel("Calculation options")
             }
             ToolbarItemGroup(placement: .keyboard) {

@@ -607,7 +607,7 @@ struct RecipePickerSheet: View {
                 HStack {
                     Text("Pick \(mealType)").scaledFont(20, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                     Spacer()
-                    Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.25)) }.buttonStyle(.plain)
+                    Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").accessibilityLabel("Close").scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.25)) }.buttonStyle(.plain)
                         .accessibilityLabel("Close")
                 }.padding(.horizontal, 24).padding(.vertical, 14)
 

@@ -71,7 +71,7 @@ struct CommunityPriceWatchesView: View {
                         catch { self.error = error.localizedDescription }
                     }
                     Button("Remove…", role: .destructive) { removal = value }
-                } label: { Image(systemName: "ellipsis.circle").frame(minWidth: 44, minHeight: 44) }
+                } label: { Image(systemName: "ellipsis.circle").accessibilityLabel("More options").frame(minWidth: 44, minHeight: 44) }
                     .accessibilityLabel("Options for \(value.label)")
             }
             if value.paused { Text("Paused").font(.stocked(.footnote)) }

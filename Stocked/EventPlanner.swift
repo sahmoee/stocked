@@ -210,7 +210,7 @@ struct EventPlannerView: View {
         .stockedScreen()
         .navigationTitle("Events")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showNew = true } label: { Image(systemName: "plus") } } }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showNew = true } label: { Image(systemName: "plus").accessibilityLabel("Add") } } }
         .sheet(isPresented: $showNew) { NewEventSheet() }
     }
 }

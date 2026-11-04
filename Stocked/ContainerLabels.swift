@@ -196,7 +196,7 @@ struct ContainerLabelsView: View {
         .stockedScreen()
         .navigationTitle("Container Labels")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus") } } }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus").accessibilityLabel("Add label") } } }
         .sheet(isPresented: $showAdd) { AddContainerLabelSheet() }
     }
 }

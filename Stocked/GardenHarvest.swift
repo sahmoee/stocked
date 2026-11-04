@@ -261,7 +261,7 @@ struct GardenHarvestView: View {
         .stockedScreen()
         .navigationTitle("Garden")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus") } } }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus").accessibilityLabel("Add harvest") } } }
         .sheet(isPresented: $showAdd) { AddHarvestSheet() }
     }
 

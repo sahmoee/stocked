@@ -273,7 +273,7 @@ struct TakeoutLogView: View {
         .stockedScreen()
         .navigationTitle("Eating Out")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus") } } }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus").accessibilityLabel("Add") } } }
         .sheet(isPresented: $showAdd) { AddTakeoutSheet() }
     }
 

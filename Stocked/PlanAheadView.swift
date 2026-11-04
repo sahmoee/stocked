@@ -147,7 +147,7 @@ struct PlanAheadView: View {
                                         Button(meal.isSkipped ? "Restore this meal" : "Skip this meal") { perform { try store.skip(meal); return "Updated this date only." } }
                                     }
                                     Button("Remove…", role: .destructive) { deletion = .meal(meal) }
-                                } label: { Image(systemName: "ellipsis.circle").frame(minWidth: 44, minHeight: 44) }
+                                } label: { Image(systemName: "ellipsis.circle").accessibilityLabel("More options").frame(minWidth: 44, minHeight: 44) }
                                     .disabled(!canEdit).accessibilityLabel("Options for \(meal.title)")
                             }
                         }

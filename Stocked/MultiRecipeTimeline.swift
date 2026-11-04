@@ -170,7 +170,7 @@ struct MultiRecipeTimelineView: View {
         .stockedScreen()
         .navigationTitle("Cook Together")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus") } } }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { showAdd = true } label: { Image(systemName: "plus").accessibilityLabel("Add dish") } } }
         .sheet(isPresented: $showAdd) { AddTimelineDishSheet { recipes.append($0) } }
     }
 

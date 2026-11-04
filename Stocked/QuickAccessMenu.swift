@@ -65,7 +65,7 @@ struct QuickGrocerySheet: View {
             .stockedIconButton(item.isChecked ? "Uncheck \(item.name)" : "Check off \(item.name)")
             Text(item.name).scaledFont(15).foregroundStyle(item.isChecked ? session.themeTextColor.opacity(0.7) : session.themeTextColor).strikethrough(item.isChecked)
             Spacer()
-            Button { store.removeGrocery(id: item.id) } label: { Image(systemName: "xmark").scaledFont(14).foregroundStyle(session.themeSecondaryText) }.buttonStyle(.plain)
+            Button { store.removeGrocery(id: item.id) } label: { Image(systemName: "xmark").accessibilityLabel("Remove from grocery list").scaledFont(14).foregroundStyle(session.themeSecondaryText) }.buttonStyle(.plain)
                 .stockedIconButton("Remove \(item.name)")
         }
         .padding(.horizontal, 24).padding(.vertical, 10).contentShape(Rectangle())
@@ -94,7 +94,7 @@ struct FontPickerSheet: View {
                 HStack {
                     Text("Select Font").scaledFont(22, weight: .bold, design: .serif).foregroundStyle(session.themeTextColor)
                     Spacer()
-                    Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.25)) }.buttonStyle(.plain)
+                    Button { dismiss() } label: { Image(systemName: "xmark.circle.fill").accessibilityLabel("Close").scaledFont(26).foregroundStyle(session.themeTextColor.opacity(0.25)) }.buttonStyle(.plain)
                         .accessibilityLabel("Close font picker")
                 }.padding(.horizontal, 24).padding(.vertical, 14)
                 StockedEqualHeightGrid(items: AppFont.allCases, id: \.self, columns: 4, spacing: 8) { f in
