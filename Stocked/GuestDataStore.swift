@@ -2731,8 +2731,7 @@ class GuestDataStore {
     }
     var groceryRunDateText: String {
         guard let date = Calendar.current.date(byAdding: .day, value: groceryRunDays, to: Date()) else { return "Soon" }
-        let f = DateFormatter(); f.dateFormat = "EEEE, MMM d"
-        return f.string(from: date)
+        return StockedFormatters.weekdayMonthDay.string(from: date)
     }
 
     func readyToCoookRecipes(onlineRecipes: [String] = []) -> [String] {

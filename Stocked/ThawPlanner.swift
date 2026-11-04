@@ -181,8 +181,7 @@ struct ThawPlannerView: View {
     }
 
     private func takeOutLabel(_ date: Date) -> String {
-        let f = DateFormatter(); f.dateFormat = "EEE h:mm a"
-        return date < Date() ? "now — it's already tight" : f.string(from: date)
+        date < Date() ? "now — it's already tight" : StockedFormatters.shortWeekdayTime.string(from: date)
     }
 
     private func schedule(_ plan: ThawPlan) {

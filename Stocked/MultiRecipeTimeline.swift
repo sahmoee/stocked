@@ -175,12 +175,10 @@ struct MultiRecipeTimelineView: View {
     }
 
     private var startLabel: String {
-        let f = DateFormatter(); f.timeStyle = .short
-        return f.string(from: serveAt.addingTimeInterval(-Double(total) * 60))
+        StockedFormatters.shortTime.string(from: serveAt.addingTimeInterval(-Double(total) * 60))
     }
     private func timeLabel(_ s: TimelineStep) -> String {
-        let f = DateFormatter(); f.timeStyle = .short
-        return f.string(from: TimelinePlanner.clockTime(for: s, serveAt: serveAt))
+        StockedFormatters.shortTime.string(from: TimelinePlanner.clockTime(for: s, serveAt: serveAt))
     }
 }
 

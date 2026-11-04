@@ -48,7 +48,7 @@ struct DailyBriefOverlay: View {
     private var nextRunValue: String {
         let days = store.groceryRunDays
         guard let date = Calendar.current.date(byAdding: .day, value: days, to: Date()) else { return "Soon" }
-        let f = DateFormatter(); f.dateFormat = "E, MMM d"
+        let f = StockedFormatters.shortWeekdayMonthDay
         switch days {
         case 0:  return "Recommended Today"
         case 1:  return "Recommended Tomorrow (\(f.string(from: date)))"

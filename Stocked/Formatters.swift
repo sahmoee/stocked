@@ -51,6 +51,26 @@ nonisolated enum StockedFormatters {
         let f = DateFormatter(); f.dateStyle = .short; f.timeStyle = .short; return f
     }()
 
+    /// Short time, e.g. "6:31 PM".
+    static let shortTime: DateFormatter = {
+        let f = DateFormatter(); f.timeStyle = .short; return f
+    }()
+
+    /// Full weekday + month + day, e.g. "Monday, Jun 5".
+    static let weekdayMonthDay: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "EEEE, MMM d"; return f
+    }()
+
+    /// Short weekday + month + day, e.g. "Mon, Jun 5".
+    static let shortWeekdayMonthDay: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "E, MMM d"; return f
+    }()
+
+    /// Short weekday + time, e.g. "Mon 6:31 PM".
+    static let shortWeekdayTime: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "EEE h:mm a"; return f
+    }()
+
     /// File-stamp date, e.g. "2026-06-05".
     static let fileStamp: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f

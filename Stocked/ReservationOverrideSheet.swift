@@ -68,8 +68,7 @@ struct ReservationOverrideSheet: View {
     private func dayLabel(_ dayIndex: Int, _ date: Date) -> String {
         if dayIndex == 0 { return "Today" }
         if dayIndex == 1 { return "Tomorrow" }
-        let f = DateFormatter(); f.dateFormat = "EEEE"
-        return f.string(from: date)
+        return StockedFormatters.weekday.string(from: date)
     }
 
     var body: some View {
