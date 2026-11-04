@@ -18,6 +18,7 @@
 // already used by the inventory-intent parser. The user confirms; nothing is deducted behind
 // their back.
 
+import StoreKit
 import SwiftUI
 
 // MARK: - Proposal builder
@@ -98,6 +99,7 @@ enum CookConsumption {
 struct CookCompletionSheet: View {
     @Environment(AppSession.self) private var session
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.requestReview) private var requestReview
 
     let meal: PlannedMeal
     var onDone: () -> Void = {}
@@ -216,6 +218,7 @@ struct CookCompletionSheet: View {
         }
 
         HapticManager.success()
+        ReviewPrompt.cookCompleted(requestReview)
         onDone()
         dismiss()
     }

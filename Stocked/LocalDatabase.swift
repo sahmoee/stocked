@@ -420,6 +420,8 @@ nonisolated enum DBKey: String, CaseIterable, Sendable {
     case groceryDay                    = "groceryDay"
     case crowdShareEnabled             = "crowdShareEnabled"
 
+    case reviewPromptCookCount         = "reviewPrompt.completedCooks"
+    case reviewPromptLastVersion       = "reviewPrompt.lastVersion"
 }
 
 // MARK: - AppDataCache
