@@ -18,8 +18,11 @@ final class ConnectivityMonitor {
     /// never flash an offline banner during the first sub-second of launch.
     private(set) var isOnline: Bool = true
 
-    /// Non-isolated snapshot for quick checks from any context (best-effort).
-    nonisolated(unsafe) private(set) static var isOnlineFlag: Bool = true
+    /// Non-isolated snapshot for quick checks from any context. Lock-protected because it is
+    /// written on the NWPathMonitor queue and read from any actor; the previous
+    /// `nonisolated(unsafe)` var was an unsynchronized cross-thread read/write.
+    nonisolated private static let onlineFlagStorage = OSAllocatedUnfairLock(initialState: true)
+    nonisolated static var isOnlineFlag: Bool { onlineFlagStorage.withLock { $0 } }
 
     private let monitor = NWPathMonitor()
     private let queue = DispatchQueue(label: "com.stocked.connectivity", qos: .utility)
@@ -34,7 +37,7 @@ final class ConnectivityMonitor {
             // Runs on a background queue — capture only the Sendable status value, then
             // hop to the main actor and update the shared instance (avoids self-capture).
             let online = path.status == .satisfied
-            ConnectivityMonitor.isOnlineFlag = online
+            ConnectivityMonitor.onlineFlagStorage.withLock { $0 = online }
             Task { @MainActor in
                 let m = ConnectivityMonitor.shared
                 if m.isOnline != online {
