@@ -155,11 +155,10 @@ struct MatchPill: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        guard coverage.total > 0 else { return AnyView(EmptyView()) }
-        let dark = scheme == .dark
-        let tint = coverage.tint(dark: dark)
-        let text = coverage.isReady ? "Ready" : "\(coverage.have)/\(coverage.total)"
-        return AnyView(
+        if coverage.total > 0 {
+            let dark = scheme == .dark
+            let tint = coverage.tint(dark: dark)
+            let text = coverage.isReady ? "Ready" : "\(coverage.have)/\(coverage.total)"
             HStack(spacing: 3) {
                 Image(systemName: coverage.isReady ? "checkmark.circle.fill" : "circle.lefthalf.filled")
                     .scaledFont(9, weight: .bold)
@@ -168,6 +167,6 @@ struct MatchPill: View {
             .foregroundStyle(tint)
             .padding(.horizontal, 7).padding(.vertical, 2)
             .background(Capsule().fill(tint.opacity(dark ? 0.18 : 0.12)))
-        )
+        }
     }
 }

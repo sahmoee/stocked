@@ -227,18 +227,7 @@ struct RecipeNutritionSummary: View {
 
     var body: some View {
         let t = totals
-        guard t.calories > 0 else {
-            return AnyView(
-                Color.clear
-                    .frame(height: 0)
-                    .task(id: cacheKey) {
-                        totals = await RecipeNutritionSummaryCache.shared.totals(
-                            ingredients: ingredients, servings: servings)
-                    }
-            )
-        }
-
-        return AnyView(
+        if t.calories > 0 {
             VStack(spacing: 0) {
                 // Header row — always visible
                 Button { motion.animate(.standard, intent: .spatial) { expanded.toggle() } } label: {
@@ -285,7 +274,15 @@ struct RecipeNutritionSummary: View {
                 totals = await RecipeNutritionSummaryCache.shared.totals(
                     ingredients: ingredients, servings: servings)
             }
-        )
+        
+        } else {
+            Color.clear
+                .frame(height: 0)
+                .task(id: cacheKey) {
+                    totals = await RecipeNutritionSummaryCache.shared.totals(
+                        ingredients: ingredients, servings: servings)
+                }
+        }
     }
 
     private func macroPill(_ label: String, _ color: Color) -> some View {

@@ -364,15 +364,6 @@ class AppSession {
         }
     }
 
-    var backgroundView: AnyView {
-        switch appBackground {
-        case .defaultTan:             return AnyView(Color.stockedBg)
-        case .color(let r,let g,let b): return AnyView(Color(red:r,green:g,blue:b))
-        case .photo(let data):
-            if let ui = UIImage(data: data) { return AnyView(Image(uiImage:ui).resizable().scaledToFill()) }
-            return AnyView(Color.stockedBg)
-        }
-    }
     var backgroundColor: Color {
         switch appBackground {
         case .defaultTan:             return Color.stockedBg
