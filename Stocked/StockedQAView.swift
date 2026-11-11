@@ -325,8 +325,6 @@ enum StockedQAChecklist {
         QAChecklistSection(23, "Nutrition and health", [
             ("Nutrition facts display where data exists and are absent, not zeroed, where it does not", false),
             ("Per-serving values change correctly when servings scale", false),
-            ("HealthKit write, where enabled, records a completed meal once", true),
-            ("Declining HealthKit leaves everything else working", false),
             ("No nutrition claim is shown as certain when the source data is an estimate", false),
         ]),
         QAChecklistSection(24, "Costs, budget, and price history", [

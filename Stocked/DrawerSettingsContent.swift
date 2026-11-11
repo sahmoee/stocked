@@ -989,8 +989,6 @@ struct HelpCenterSheet: View {
                             detail: "Cook Now solves tonight. Cook Later gets the household ahead with Plan, Shop, and Prep views, a week and calendar overview, ingredient allocation and shortage checks, substitutions, and auto-generated prep. Finishing a cook updates inventory.")
                     helpRow(icon: "wrench.and.screwdriver", title: "Kitchen Toolbox",
                             detail: "A hub of tools for planning, conversions, cooking, and reference — reachable from the drawer under Kitchen Tools.")
-                    helpRow(icon: "heart", title: "Apple Health",
-                            detail: "Opt in from Preferences to log a cooked meal's nutrition to Apple Health. It's off until you enable it, and never shared with anyone else.")
 
                     helpSection("Sharing & backup")
                     helpRow(icon: "person.2", title: "Household Sync",

@@ -35,7 +35,7 @@ Approved recipes synchronized from StockedMac may include structured recipe fact
 
 ## Health data
 
-If you explicitly enable the feature, Stocked may write cooked-meal nutrition to Apple Health. Stocked does not use Health information for advertising, tracking, data brokerage, credit, or employment decisions. Health information is handled through HealthKit permissions and remains subject to Apple's Health privacy controls. The current feature is intended to write selected nutrition records and does not require uploading Health data to Sowens Studios.
+Stocked does not integrate with Apple Health or HealthKit and does not read or write Health data.
 
 ## Diagnostics and support
 

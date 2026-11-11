@@ -85,13 +85,6 @@ struct PreferencesSectionView: View {
                                   action: onDietaryProfile)
                     }
 
-                    if HealthKitManager.shared.isAvailable {
-                        toggleRow(dark: dark, icon: "heart.fill", title: "Apple Health", detail: "Log cooked-meal nutrition to Health.", isOn: Binding(
-                            get: { HealthKitManager.shared.isEnabled },
-                            set: { HealthKitManager.shared.isEnabled = $0 }
-                        ))
-                    }
-
                     Text("Cuisines stay in Recipes where changes are immediately useful.")
                         .scaledFont(12)
                         .foregroundStyle(session.themeSecondaryText)
