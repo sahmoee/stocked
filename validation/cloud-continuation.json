@@ -34,7 +34,7 @@
     "Device-test the Share Extension from Safari, Notes (attributed text), Photos (large HEIC) and TikTok/Instagram (caption + link) shares",
     "VoiceOver pass on widgets (lock screen circular gauges) and the relabelled controls; verify 44pt targets don't crowd the 'Holds' stepper row at large Dynamic Type",
     "Open an exported CSV in Numbers/Excel to confirm the apostrophe guard renders as text, and re-import an Excel 'CSV UTF-8' (BOM + CRLF) file",
-    "Android and StockedMac CSV exporters/importers should adopt the same formula guard/unguard for full cross-platform parity",
+    "StockedMac CSV exporters/importers should adopt the same formula guard/unguard for full cross-platform parity",
     "Stocked/ShareViewController.swift is a legacy duplicate of the extension controller compiled into the app target; consider removing it in Xcode"
   ],
   "codex_review": {
