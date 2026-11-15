@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
-"""Small real-model Swift/Kotlin backup seam checks; no app/SDK build or app storage.
---baseline runs the pre-fix decoder/apply against adversarial shapes.
+"""Small real-model Swift backup compatibility checks; no app/SDK build or app storage.
 """
-import argparse
 from pathlib import Path
 import subprocess
 import tempfile
 import os
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / 'android/app/src/main/java/com/sowens/stocked/data'
-FIXTURES = ROOT / 'android/app/src/test/resources/backup'
+FIXTURES = ROOT / 'scripts/fixtures/backup'
 
 def block(text, signature):
     a = text.index(signature); i = text.index('{', a) + 1; depth = 1
@@ -91,7 +88,7 @@ CHECKS = r'''
      print("FAIL expiration local day \(args[3]): \(day)"); exit(1)
     }
    }
-   print("PASS fresh + edited Kotlin expirations -> actual Swift local calendar \(args[3]): 2026-10-22; quantity/epoch metadata retained")
+   print("PASS fresh + edited backup expirations -> actual Swift local calendar \(args[3]): 2026-10-22; quantity/epoch metadata retained")
    return
   }
   if args[1] == "generate" {
@@ -126,7 +123,7 @@ CHECKS = r'''
   for (name, text) in [
    ("unknown", "{\"unrelated\":[1]}"),
    ("metadata-only", "{\"schemaVersion\":3,\"displayName\":\"Unknown\"}"),
-   ("legacy Android", "{\"inventory\":[{\"name\":\"Milk\"}],\"grocery\":[],\"planned\":[],\"userRecipes\":[]}"),
+   ("legacy external backup", "{\"inventory\":[{\"name\":\"Milk\"}],\"grocery\":[],\"planned\":[],\"userRecipes\":[]}"),
    ("bad section", "{\"inventoryItems\":{\"name\":\"Milk\"}}"),
    ("null section", "{\"inventoryItems\":null}"),
    ("bad row", "{\"inventoryItems\":[{\"name\":\"Milk\",\"quantity\":\"broken\"}]}"),
@@ -184,16 +181,16 @@ CHECKS = r'''
    let canonical = try JSONDecoder().decode(KitchenSnapshot.self, from: Data(contentsOf: URL(fileURLWithPath: args[2])))
    let store = GuestDataStore()
    try manager.restore(Data(contentsOf: URL(fileURLWithPath: args[3])), into: store)
-   check("Kotlin export inventory actual model", store.inventoryItems == canonical.inventoryItems)
-   check("Kotlin export grocery actual model", store.groceryItems == canonical.groceryItems)
-   check("Kotlin export recipes actual model", store.userRecipes == canonical.userRecipes)
-   check("Kotlin export plans actual model", store.plannedMeals == canonical.plannedMeals)
+   check("External export inventory actual model", store.inventoryItems == canonical.inventoryItems)
+   check("External export grocery actual model", store.groceryItems == canonical.groceryItems)
+   check("External export recipes actual model", store.userRecipes == canonical.userRecipes)
+   check("External export plans actual model", store.plannedMeals == canonical.plannedMeals)
 
    let freshStore = GuestDataStore()
    let freshData = try Data(contentsOf: URL(fileURLWithPath: args[4]))
    let original = try JSONSerialization.jsonObject(with: freshData) as! [String: Any]
    let sourceRecipe = (original["userRecipes"] as! [[String: Any]])[0]
-   check("fresh Android recipe has no original creation date", sourceRecipe["dateCreated"] == nil)
+   check("fresh external recipe has no original creation date", sourceRecipe["dateCreated"] == nil)
    let beforeAdoption = Date()
    do {
     try manager.restore(freshData, into: freshStore)
@@ -249,114 +246,22 @@ def swift_fixture(baseline):
     return support + '\n' + '\n'.join(declarations) + '\n' + snapshot + '\n' + CHECKS
 
 
-def kotlin(work, ios, exported, fresh, baseline=False):
-    cache = Path.home()/'.gradle/caches/modules-2/files-2.1'
-    def jar(group, artifact, version):
-        return next((cache/group/artifact/version).glob('*/*.jar'))
-    java = Path.home()/'.local/share/java/zulu21.52.203-ca-jdk21.0.12.1-macosx_x64/Contents/Home/bin/java'
-    compiler = [jar('org.jetbrains.kotlin','kotlin-compiler-embeddable','2.0.21'),jar('org.jetbrains.kotlin','kotlin-stdlib','2.0.21'),jar('org.jetbrains.intellij.deps','trove4j','1.0.20200330'),jar('org.jetbrains','annotations','13.0')]
-    compiler += list((cache/'org.jetbrains.kotlin/kotlin-script-runtime/2.0.21').glob('*/*.jar'))
-    compiler += list((cache/'org.jetbrains.kotlin/kotlin-reflect').glob('*/*/*.jar'))[:1]
-    compiler += list((cache/'org.jetbrains.kotlinx/kotlinx-coroutines-core-jvm').glob('*/*/*.jar'))[:1]
-    runtime = [jar('org.jetbrains.kotlin','kotlin-stdlib','2.0.21'),jar('org.jetbrains.kotlinx','kotlinx-serialization-core-jvm','1.7.3'),jar('org.jetbrains.kotlinx','kotlinx-serialization-json-jvm','1.7.3'),jar('org.jetbrains','annotations','13.0')]
-    plugin=jar('org.jetbrains.kotlin','kotlin-serialization-compiler-plugin-embeddable','2.0.21')
-    main = work/'Interop.kt'
-    main.write_text(r'''
-import com.sowens.stocked.data.*
-import kotlinx.serialization.json.*
-import java.io.File
-fun main(args:Array<String>) {
- val input=File(args[0]).readText()
- val preview=BackupCodec.preview(input, KitchenState())
- check(preview.incoming.inventory.single().quantity==3)
- check(preview.incoming.grocery.single().isChecked)
- check(preview.incoming.planned.single().isCooked)
- check(preview.incoming.userRecipes.single().isFavorited)
- val text=BackupCodec.export(preview.incoming)
- File(args[1]).writeText(text)
- val freshRecipe=Recipe(id="00000000-0000-0000-0000-000000000006", title="Fresh pudding", ingredients=listOf(Ingredient(id="00000000-0000-0000-0000-000000000007", name="Milk", amount="1 cup")), isFavorited=true)
- val freshText=BackupCodec.export(preview.incoming.copy(userRecipes=listOf(freshRecipe)))
- check(!BackupCodec.json.parseToJsonElement(freshText).jsonObject["userRecipes"]!!.jsonArray.single().jsonObject.containsKey("dateCreated"))
- File(args[2]).writeText(freshText)
- val previousZone=java.util.TimeZone.getDefault()
- try {
-  for ((zone, name) in listOf("America/Chicago" to "expiration-chicago.json", "UTC" to "expiration-utc.json")) {
-   java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(zone))
-   val item=InventoryItem(id="00000000-0000-0000-0000-000000000010",name="Fresh milk",quantity=2,expirationDate="2026-10-22",updatedAt=1770000000123.0)
-   val edited=preview.incoming.inventory.single().copy(id="00000000-0000-0000-0000-000000000011",quantity=2,expirationDate="2026-10-22")
-   File(args[3],name).writeText(BackupCodec.export(KitchenState(inventory=listOf(item,edited))))
-  }
- } finally { java.util.TimeZone.setDefault(previousZone) }
- val again=BackupCodec.preview(text,KitchenState()).incoming
- check(again.inventory.single().id==preview.incoming.inventory.single().id)
- check(again.inventory.single().updatedAt==1770000000123.0)
- val legacy="""{"inventory":[{"id":"00000000-0000-0000-0000-000000000001","name":"Milk"}],"grocery":[],"planned":[],"userRecipes":[]}"""
- check(BackupCodec.preview(legacy,KitchenState()).incoming.inventory.size==1)
- check(BackupCodec.preview("""{"inventoryItems":[],"groceryItems":[]}""",KitchenState()).incoming.inventory.isEmpty())
- println("PASS actual Kotlin models/preview/export; legacy import; canonical empty; ID and epoch metadata")
-}
-''')
-    sources=[DATA/'Models.kt',DATA/'KitchenRules.kt',DATA/'BackupCodec.kt',main]
-    if not baseline:
-        runtime += [jar('junit','junit','4.13.2'),jar('org.hamcrest','hamcrest-core','1.3')]
-        sources.append(ROOT/'android/app/src/test/java/com/sowens/stocked/data/BackupCodecInteropTest.kt')
-        sources.append(ROOT/'android/app/src/test/java/com/sowens/stocked/data/KitchenRulesTest.kt')
-    if baseline:
-        old=work/'BackupCodec.kt';old.write_text(read('android/app/src/main/java/com/sowens/stocked/data/BackupCodec.kt',True));sources[2]=old
-    output=work/'kotlin-classes'
-    subprocess.run([str(java),'-Xmx512m','-cp',os.pathsep.join(map(str,compiler)),'org.jetbrains.kotlin.cli.jvm.K2JVMCompiler','-no-stdlib','-no-reflect','-jvm-target','17','-classpath',os.pathsep.join(map(str,runtime)),'-Xplugin='+str(plugin),'-d',str(output)]+list(map(str,sources)),check=True)
-    subprocess.run([str(java),'-Xmx256m','-cp',os.pathsep.join(map(str,[output]+runtime)),'InteropKt',str(ios),str(exported),str(fresh),str(work)],check=True)
-    if not baseline:
-        subprocess.run([str(java),'-Xmx256m','-cp',os.pathsep.join(map(str,[output,ROOT/'android/app/src/test/resources']+runtime)),'org.junit.runner.JUnitCore','com.sowens.stocked.data.BackupCodecInteropTest','com.sowens.stocked.data.KitchenRulesTest'],check=True)
-
-
 def main():
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--baseline',action='store_true')
-    parser.add_argument('--write-fixture',action='store_true')
-    parser.add_argument('--swift-only',action='store_true', help='Hosted macOS mode: real Swift decoder/apply against committed Kotlin golden; no Java or Gradle cache needed')
-    args=parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='stocked-backup-interop-') as directory:
-        work=Path(directory)
-        source=work/'Checks.swift';source.write_text(swift_fixture(args.baseline))
-        exe=work/'checks'
-        subprocess.run(['swiftc','-parse-as-library','-module-cache-path',str(work/'swift-cache'),str(source),'-o',str(exe)],check=True)
-        ios=work/'ios.json';android=work/'android.json';fresh=work/'fresh.json'
-        subprocess.run([str(exe),'generate',str(ios)],check=True)
-        if args.write_fixture:
-            FIXTURES.mkdir(parents=True,exist_ok=True)
-            (FIXTURES/'ios-canonical.json').write_bytes(ios.read_bytes())
-        if args.swift_only:
-            ios.write_bytes((FIXTURES/'ios-canonical.json').read_bytes())
-            android.write_bytes((FIXTURES/'android-canonical.json').read_bytes())
-            fresh.write_bytes((FIXTURES/'android-fresh-recipe.json').read_bytes())
-        else:
-            kotlin(work,ios,android,fresh,args.baseline)
-        result=subprocess.run([str(exe),'check',str(ios),str(android),str(fresh)],text=True,capture_output=True)
-        print(result.stdout,end='');print(result.stderr,end='')
-        if args.baseline:
-            expected = {'unknown rejected before mutation', 'metadata-only rejected before mutation', 'legacy Android rejected before mutation', 'bad section rejected before mutation', 'null section rejected before mutation', 'bad row rejected before mutation', 'bad plan rejected before mutation', 'bad recipe rejected before mutation'}
-            if not args.swift_only:
-                expected |= {'Kotlin export inventory actual model', 'Kotlin export grocery actual model', 'Kotlin export plans actual model'}
-            expected |= {'fresh recipe core fields and IDs preserved', 'fresh recipe Replace retains every section',
-                         'malformed creation date rejected without mutation', 'null creation date rejected without mutation',
-                         'legacy v1 recipe native defaults and string ingredients', 'legacy v1 plan additive defaults',
-                         'legacy typed ingredient preserves supplied metadata', 'missing required name rejected atomically',
-                         'bad supplied recipe ID rejected atomically', 'bad supplied ingredient flag rejected atomically',
-                         'bad supplied ingredient shape rejected atomically', 'bad supplied plan flag rejected atomically'}
-            actual = {line[5:] for line in result.stdout.splitlines() if line.startswith('FAIL ')}
-            if result.returncode != 1 or actual != expected:
-                raise SystemExit('Unexpected baseline failures: ' + repr(actual))
-            print('CONFIRMED baseline rejected by interoperability/safety assertions')
-        elif result.returncode: raise SystemExit(result.returncode)
-        elif args.write_fixture:
-            (FIXTURES/'android-canonical.json').write_bytes(android.read_bytes())
-            (FIXTURES/'android-fresh-recipe.json').write_bytes(fresh.read_bytes())
-        if not args.baseline:
-            for zone, name in [('America/Chicago', 'expiration-chicago.json'), ('UTC', 'expiration-utc.json')]:
-                fixture = FIXTURES/name if args.swift_only else work/name
-                subprocess.run([str(exe), 'expiration', str(fixture), zone], env={**os.environ, 'TZ': zone}, check=True)
-                if args.write_fixture:
-                    (FIXTURES/name).write_bytes(fixture.read_bytes())
+        work = Path(directory)
+        source = work / 'Checks.swift'
+        source.write_text(swift_fixture(False))
+        exe = work / 'checks'
+        subprocess.run(['swiftc', '-parse-as-library', '-module-cache-path',
+                        str(work / 'swift-cache'), str(source), '-o', str(exe)], check=True)
+        subprocess.run([str(exe), 'check', str(FIXTURES / 'ios-canonical.json'),
+                        str(FIXTURES / 'external-canonical.json'),
+                        str(FIXTURES / 'external-fresh-recipe.json')], check=True)
+        for zone, name in [('America/Chicago', 'expiration-chicago.json'),
+                           ('UTC', 'expiration-utc.json')]:
+            subprocess.run([str(exe), 'expiration', str(FIXTURES / name), zone],
+                           env={**os.environ, 'TZ': zone}, check=True)
 
-if __name__=='__main__': main()
+
+if __name__ == '__main__':
+    main()

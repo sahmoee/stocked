@@ -1,0 +1,97 @@
+{
+  "displayName" : "Fixture kitchen",
+  "exportedAt" : "2026-10-22T08:01:56Z",
+  "groceryItems" : [
+    {
+      "addedByName" : "",
+      "assignedTo" : "",
+      "id" : "00000000-0000-0000-0000-000000000002",
+      "isChecked" : true,
+      "isRecommended" : true,
+      "lastWriterID" : "",
+      "name" : "Rice",
+      "quantity" : 4,
+      "recipeId" : "recipe-source",
+      "recipeSource" : "",
+      "sizeText" : "",
+      "updatedAt" : 1770000000456
+    }
+  ],
+  "inventoryItems" : [
+    {
+      "containerType" : "carton",
+      "expirationDate" : 800000000.125,
+      "hasStash" : true,
+      "id" : "00000000-0000-0000-0000-000000000001",
+      "isLeftover" : true,
+      "lastWriterID" : "",
+      "level" : 0.75,
+      "name" : "Milk",
+      "quantity" : 3,
+      "sizeAmount" : 2,
+      "sizeUnit" : "L",
+      "storageCategory" : "Fridge",
+      "updatedAt" : 1770000000123
+    }
+  ],
+  "pastMeals" : [
+
+  ],
+  "plannedMeals" : [
+    {
+      "cookAheadStatus" : "stored",
+      "dayIndex" : 2,
+      "id" : "00000000-0000-0000-0000-000000000005",
+      "ingredients" : [
+        "Milk"
+      ],
+      "isBuilding" : false,
+      "isCooked" : true,
+      "lastWriterID" : "",
+      "mealType" : "Dinner",
+      "servings" : 3,
+      "title" : "Pudding",
+      "updatedAt" : 0
+    }
+  ],
+  "savedRecipes" : [
+
+  ],
+  "schemaVersion" : 3,
+  "userRecipes" : [
+    {
+      "cookCount" : 2,
+      "cookTime" : "",
+      "cuisine" : "",
+      "dateCreated" : 700000000.25,
+      "description" : "",
+      "difficulty" : "Medium",
+      "dishRole" : "unspecified",
+      "id" : "00000000-0000-0000-0000-000000000004",
+      "ingredients" : [
+        {
+          "amount" : "2 cups",
+          "id" : "00000000-0000-0000-0000-000000000003",
+          "isOptional" : true,
+          "name" : "Milk",
+          "quantity" : 2,
+          "unit" : "cup"
+        }
+      ],
+      "instructions" : [
+
+      ],
+      "isFavorited" : true,
+      "lastCooked" : 750000000.5,
+      "lastWriterID" : "",
+      "notes" : "",
+      "prepTime" : "",
+      "servings" : 4,
+      "tags" : [
+
+      ],
+      "title" : "Pudding",
+      "updatedAt" : 1770000000789
+    }
+  ]
+}
